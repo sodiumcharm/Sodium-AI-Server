@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+lib/
+out/
+
+# Logs
+*.log
+
+# Coverage reports
+coverage/
+
+# Cache directories
+.cache/
+.parcel-cache/
+
+# Environment files
+.env*
+
+# Database files
+*.db
+*.sqlite
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+
+# Package files
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
