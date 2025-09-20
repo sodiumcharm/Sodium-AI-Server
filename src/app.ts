@@ -5,6 +5,7 @@ import cookieParser from 'cookie-parser';
 import compression from 'compression';
 import corsOptions from './config/cors';
 import limiter from './config/expressRateLimit';
+import httpLogger from './config/pino';
 import { API_URL } from './constants';
 import homeRouter from './routes/home.route';
 import globalErrorHandler from './error/errorHandler';
@@ -26,6 +27,8 @@ app.use(compression({ threshold: 1024 }));
 app.use(limiter);
 
 app.use(express.static('public'));
+
+app.use(httpLogger);
 
 app.use(API_URL, homeRouter);
 

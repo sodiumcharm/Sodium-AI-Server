@@ -10,6 +10,8 @@ const _config: EnvObject = {
   CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME as string,
   CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY as string,
   CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET as string,
+  GEMINI_API_KEY: process.env.GEMINI_API_KEY as string,
+  HUGGING_FACE_TOKEN: process.env.HUGGING_FACE_TOKEN as string,
 };
 
 export const config: EnvObject = Object.freeze(_config);

@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { Document } from 'mongoose';
 
 export type AsyncRouteHandler = (req: Request, res: Response, next: NextFunction) => Promise<void>;
 
@@ -10,6 +11,8 @@ export type EnvObject = {
   CLOUDINARY_CLOUD_NAME: string;
   CLOUDINARY_API_KEY: string;
   CLOUDINARY_API_SECRET: string;
+  GEMINI_API_KEY: string;
+  HUGGING_FACE_TOKEN: string;
 };
 
 export type CloudinaryDestroyResult = {
@@ -34,3 +37,5 @@ export type MbtiTypes = {
   ESTP: string;
   ESFP: string;
 };
+
+export interface UserDocument extends Document {}
