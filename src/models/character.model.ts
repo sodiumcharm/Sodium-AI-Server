@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
+import { CharacterDocument } from '../types/types';
 
-const characterSchema = new mongoose.Schema(
+const characterSchema = new mongoose.Schema<CharacterDocument>(
   {
     name: {
       type: String,
@@ -100,6 +101,24 @@ const characterSchema = new mongoose.Schema(
       default: 'secure',
       enum: ['secure', 'anxious', 'avoidant', 'disorganised'],
     },
+    zodiac: {
+      type: String,
+      trim: true,
+      enum: [
+        'aries',
+        'taurus',
+        'gemini',
+        'cancer',
+        'leo',
+        'virgo',
+        'libra',
+        'scorpio',
+        'sagittarius',
+        'capricorn',
+        'aquarius',
+        'pisces',
+      ],
+    },
     voice: {
       type: String,
       required: true,
@@ -148,6 +167,6 @@ const characterSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-const Character = mongoose.model('Character', characterSchema);
+const Character = mongoose.model<CharacterDocument>('Character', characterSchema);
 
 export default Character;

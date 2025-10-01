@@ -1,6 +1,12 @@
 import mongoose from 'mongoose';
+import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
+import { UserDocument } from '../types/types';
+import validator from 'validator';
+import { isValidName, isValidUsername } from '../utils/validators';
+import { config } from '../config/config';
 
-const userSchema = new mongoose.Schema(
+const userSchema = new mongoose.Schema<UserDocument>(
   {
     fullname: {
       type: String,
@@ -8,6 +14,7 @@ const userSchema = new mongoose.Schema(
       trim: true,
       minlength: 2,
       maxlength: 50,
+      validate: [isValidName, 'Please provide a valid name'],
     },
     username: {
       type: String,
@@ -16,12 +23,28 @@ const userSchema = new mongoose.Schema(
       trim: true,
       minlength: 3,
       maxlength: 20,
+      validate: [isValidUsername, 'Please provide a valid username'],
+    },
+    lastUsernameChanged: {
+      type: Date,
+    },
+    usernameCooldown: {
+      type: Number,
+      default: 2,
+    },
+    registeredBy: {
+      type: String,
+      required: true,
+      trim: true,
+      enum: ['credentials', 'google'],
     },
     email: {
       type: String,
       required: true,
       trim: true,
       unique: true,
+      lowercase: true,
+      validate: [validator.isEmail, 'Please provide a valid email'],
     },
     isEmailVerified: {
       type: Boolean,
@@ -29,16 +52,14 @@ const userSchema = new mongoose.Schema(
     },
     password: {
       type: String,
-      required: true,
       minlength: 8,
-      select: false,
+      maxlength: 128,
     },
     passwordChangedAt: {
       type: Date,
     },
     profileImage: {
       type: String,
-      required: true,
     },
     profileImageId: {
       type: String,
@@ -47,11 +68,15 @@ const userSchema = new mongoose.Schema(
     refreshToken: {
       type: String,
     },
+    twoFAEnabled: {
+      type: Boolean,
+      default: false,
+    },
     gender: {
       type: String,
       trim: true,
       default: 'unknown',
-      enum: ['male', 'female'],
+      enum: ['male', 'female', 'unknown'],
     },
     personality: {
       type: String,
@@ -122,24 +147,49 @@ const userSchema = new mongoose.Schema(
         ref: 'Image',
       },
     ],
-    activeOtp: {
-      type: String,
-      maxLength: 6,
-      minlength: 6,
-      select: false,
-    },
-    otpExpiresAt: {
-      type: Date,
-      select: false,
-    },
-    otpAttempts: {
-      type: Number,
-      select: false,
-    },
   },
   { timestamps: true }
 );
 
-const User = mongoose.model('User', userSchema);
+userSchema.pre('save', async function (next) {
+  if (!this.isModified('password')) return next();
+
+  if (this.password && this.password.trim().length >= 1)
+    this.password = await bcrypt.hash(this.password, 12);
+  next();
+});
+
+userSchema.methods.isPasswordCorrect = async function (password: string): Promise<boolean> {
+  return await bcrypt.compare(password, this.password);
+};
+
+userSchema.methods.generateAccessToken = function (): string {
+  return jwt.sign(
+    {
+      _id: this._id,
+      email: this.email,
+    },
+    config.ACCESS_TOKEN_SECRET,
+    {
+      expiresIn: config.ACCESS_TOKEN_EXPIRY as any,
+    }
+  );
+};
+
+userSchema.methods.generateRefreshToken = function (): string {
+  return jwt.sign({ _id: this._id }, config.REFRESH_TOKEN_SECRET, {
+    expiresIn: config.REFRESH_TOKEN_EXPIRY as any,
+  });
+};
+
+userSchema.methods.isPasswordChangedAfter = function (jwtIssueTime: number): boolean {
+  if (this.passwordChangedAt) {
+    const passwordChangingTime = this.passwordChangedAt.getTime() / 1000;
+    return jwtIssueTime < passwordChangingTime;
+  }
+  return false;
+};
+
+const User = mongoose.model<UserDocument>('User', userSchema);
 
 export default User;

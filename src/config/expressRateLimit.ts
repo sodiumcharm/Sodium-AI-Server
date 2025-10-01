@@ -1,13 +1,42 @@
-import { rateLimit } from 'express-rate-limit';
+import { rateLimit, ipKeyGenerator } from 'express-rate-limit';
 
-const limiter = rateLimit({
+export const globalLimiter = rateLimit({
   windowMs: 1 * 60 * 1000,
-  limit: 60,
+  max: 200,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
   message: {
-    error: 'Too many requests from this IP, please try again after later!',
+    error: 'Too many requests from this IP, please try again later!',
   },
 });
 
-export default limiter;
+export const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  message: {
+    error: 'Too many attempts, please try again later!',
+  },
+});
+
+export const otpRequestLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000,
+  max: 1,
+  keyGenerator: req => req.body?.context || ipKeyGenerator(req.ip as string),
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  message: {
+    error: 'You can request a new OTP only once per minute!',
+  },
+});
+
+export const otpVerificationLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 20,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  message: {
+    error: 'Too many OTP verification requests! Please try again later.',
+  },
+});

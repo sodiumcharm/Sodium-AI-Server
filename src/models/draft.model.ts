@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
+import { DraftDocument } from '../types/types';
 
-const draftSchema = new mongoose.Schema(
+const draftSchema = new mongoose.Schema<DraftDocument>(
   {
     name: {
       type: String,
@@ -104,6 +105,6 @@ const draftSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-const Draft = mongoose.model('Draft', draftSchema);
+const Draft = mongoose.model<DraftDocument>('Draft', draftSchema);
 
 export default Draft;

@@ -12,6 +12,13 @@ const _config: EnvObject = {
   CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET as string,
   GEMINI_API_KEY: process.env.GEMINI_API_KEY as string,
   HUGGING_FACE_TOKEN: process.env.HUGGING_FACE_TOKEN as string,
+  GOOGLE_APP_PASSWORD: process.env.GOOGLE_APP_PASSWORD as string,
+  ACCESS_TOKEN_SECRET: process.env.ACCESS_TOKEN_SECRET as string,
+  ACCESS_TOKEN_EXPIRY: process.env.ACCESS_TOKEN_EXPIRY as string,
+  REFRESH_TOKEN_SECRET: process.env.REFRESH_TOKEN_SECRET as string,
+  REFRESH_TOKEN_EXPIRY: process.env.REFRESH_TOKEN_EXPIRY as string,
+  GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID as string,
+  GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET as string,
 };
 
 export const config: EnvObject = Object.freeze(_config);
