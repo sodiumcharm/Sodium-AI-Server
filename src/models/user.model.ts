@@ -52,8 +52,6 @@ const userSchema = new mongoose.Schema<UserDocument>(
     },
     password: {
       type: String,
-      minlength: 8,
-      maxlength: 128,
     },
     passwordChangedAt: {
       type: Date,
@@ -64,6 +62,12 @@ const userSchema = new mongoose.Schema<UserDocument>(
     profileImageId: {
       type: String,
       select: false,
+    },
+    profileDescription: {
+      type: String,
+      trim: true,
+      maxlength: 200,
+      default: '',
     },
     refreshToken: {
       type: String,
@@ -145,6 +149,34 @@ const userSchema = new mongoose.Schema<UserDocument>(
       {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Image',
+      },
+    ],
+    notifications: [
+      {
+        notificationType: {
+          type: String,
+          required: true,
+          trim: true,
+          enum: ['subscribe', 'communicate', 'comment', 'follow'],
+        },
+        emitter: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'User',
+          required: true,
+        },
+        receiverUser: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'User',
+          required: true,
+        },
+        receiverCharacter: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'Character',
+        },
+        createdAt: {
+          type: Date,
+          default: Date.now,
+        },
       },
     ],
   },

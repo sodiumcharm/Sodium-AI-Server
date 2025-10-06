@@ -1,5 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { Types, Document } from 'mongoose';
+import jwt from 'jsonwebtoken';
+import { Socket } from 'socket.io';
 
 export type AsyncRouteHandler = (
   req: Request,
@@ -30,7 +32,16 @@ export type CloudinaryDestroyResult = {
   result: 'ok' | 'not found' | 'error';
 };
 
+export type Notification = {
+  notificationType: 'subscribe' | 'communicate' | 'comment' | 'follow';
+  emitter: Types.ObjectId;
+  receiverUser: Types.ObjectId;
+  receiverCharacter?: Types.ObjectId;
+  createdAt?: Date;
+};
+
 export interface UserDocument extends Document {
+  _id: Types.ObjectId;
   fullname: string;
   username: string;
   lastUsernameChanged?: Date;
@@ -42,6 +53,7 @@ export interface UserDocument extends Document {
   passwordChangedAt?: Date;
   profileImage?: string;
   profileImageId?: string;
+  profileDescription: string;
   refreshToken?: string;
   twoFAEnabled: boolean;
   gender: 'male' | 'female' | 'unknown';
@@ -60,6 +72,7 @@ export interface UserDocument extends Document {
   savedImages: Types.ObjectId[];
   createdAt: Date;
   updatedAt: Date;
+  notifications: Notification[];
   isPasswordCorrect(password: string): Promise<boolean>;
   generateAccessToken(): string;
   generateRefreshToken(): string;
@@ -73,6 +86,7 @@ declare global {
 }
 
 export interface CharacterDocument extends Document {
+  _id: Types.ObjectId;
   name: string;
   gender: 'male' | 'female' | 'non-binary';
   description: string;
@@ -96,7 +110,15 @@ export interface CharacterDocument extends Document {
   music?: string;
   musicId?: string;
   opening: string;
-  llmModel: string;
+  llmModel:
+    | 'gemini-2.5-flash'
+    | 'gemini-2.5-pro'
+    | 'gemini-2.5-flash-lite'
+    | 'gemini-1.5-flash'
+    | 'gemini-1.5-pro'
+    | 'mistralai/mistral-7B-instruct-v0.2'
+    | 'meta-llama/Llama-3-8b-instruct'
+    | 'deepseek-ai/DeepSeek-Coder-33B-instruct';
   dialogueStyle?: Types.ObjectId;
   tags?: string;
   visibility: 'public' | 'private';
@@ -112,6 +134,7 @@ export interface MessageDocument extends Document {
 }
 
 export interface MemoryDocument extends Document {
+  _id: Types.ObjectId;
   user: Types.ObjectId;
   character: Types.ObjectId;
   messages: MessageDocument[];
@@ -121,6 +144,7 @@ export interface MemoryDocument extends Document {
 }
 
 export interface DraftDocument extends Document {
+  _id: Types.ObjectId;
   name?: string;
   gender?: 'male' | 'female' | 'non-binary';
   description?: string;
@@ -147,6 +171,7 @@ export interface DraftDocument extends Document {
 }
 
 export interface ImageDocument extends Document {
+  _id: Types.ObjectId;
   image: string;
   imageId: string;
   usedPrompt: string;
@@ -155,6 +180,7 @@ export interface ImageDocument extends Document {
 }
 
 export interface CommentDocument extends Document {
+  _id: Types.ObjectId;
   character: Types.ObjectId;
   commenter: Types.ObjectId;
   parentComment?: Types.ObjectId | null;
@@ -170,6 +196,7 @@ export interface CommentDocument extends Document {
 }
 
 export interface CommunityDocument extends Document {
+  _id: Types.ObjectId;
   user: Types.ObjectId;
   text?: string;
   image?: string;
@@ -186,12 +213,19 @@ export interface OtpDocument extends Document {
   createdAt: Date;
 }
 
+export interface SecretCodeDocument extends Document {
+  userId: Types.ObjectId;
+  code: string;
+  createdAt: Date;
+}
+
 export interface DialogueMessageDocument extends Document {
   sender: 'user' | 'character';
   content: string;
 }
 
 export interface DialogueDocument extends Document {
+  _id: Types.ObjectId;
   user: Types.ObjectId;
   dialogueName: string;
   description: string;
@@ -229,4 +263,48 @@ export type TokenGenerationResult = {
   refreshToken: string;
   user?: UserDocument;
   success: SuccessResult;
+};
+
+export interface AuthenticatedSocket extends Socket {
+  user?: jwt.JwtPayload;
+}
+
+export type NotificationReceiver = {
+  receiverUser: Types.ObjectId;
+  receiverCharacter?: Types.ObjectId;
+};
+
+export type PersonalityTraits = {
+  mbti?:
+    | 'ISTJ'
+    | 'ISFJ'
+    | 'INFJ'
+    | 'INTJ'
+    | 'ISTP'
+    | 'ISFP'
+    | 'INFP'
+    | 'INTP'
+    | 'ESTP'
+    | 'ESFP'
+    | 'ENFP'
+    | 'ENTP'
+    | 'ESTJ'
+    | 'ESFJ'
+    | 'ENFJ'
+    | 'ENTJ';
+  enneagram?: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+  attachmentStyle?: 'secure' | 'anxious' | 'avoidant' | 'disorganised';
+  zodiac?:
+    | 'Aries'
+    | 'Taurus'
+    | 'Gemini'
+    | 'Cancer'
+    | 'Leo'
+    | 'Virgo'
+    | 'Libra'
+    | 'Scorpio'
+    | 'Sagittarius'
+    | 'Capricorn'
+    | 'Aquarius'
+    | 'Pisces';
 };

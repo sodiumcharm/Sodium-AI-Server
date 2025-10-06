@@ -198,7 +198,7 @@ export const signIn2FA = asyncHandler(async function (
   next: NextFunction
 ) {
   if (!req.body) {
-    return next(new ApiError(400, 'Empty Request Body: Please provide OTP and User Id for login!'));
+    return next(new ApiError(400, 'Empty Request Body: Please provide otp and userId for login!'));
   }
 
   const { data, error } = otpVerificationSchema.safeParse(req.body);

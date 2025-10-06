@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Application } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
@@ -13,7 +13,7 @@ import authRouter from './routes/auth.routes';
 import userRouter from './routes/user.routes';
 import globalErrorHandler from './error/errorHandler';
 
-const app = express();
+const app: Application = express();
 
 app.use(cors(corsOptions));
 

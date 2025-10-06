@@ -1,15 +1,26 @@
 import { config, checkEnvVariables } from './config/config';
-import { Server } from 'http';
-import logger from './utils/logger';
+import http from 'http';
+import { Server as SocketIOServer } from 'socket.io';
 import app from './app';
+import corsOptions from './config/cors';
+import logger from './utils/logger';
 import { connectDB, showDBConnectionStatus, disconnectDB } from './services/mongoose';
 import cleanTempFolder from './jobs/tempCleaner';
 import { TEMP_CLEANUP_INTERVAL } from './constants';
+import { initSockets } from './websocket/socket';
 
 // Checking environment variables
 checkEnvVariables(config);
 
-let server: Server | null = null;
+// Initiating Server
+const server = http.createServer(app);
+
+// Initialize Sockets
+const io = new SocketIOServer(server, {
+  cors: corsOptions,
+});
+
+initSockets(io);
 
 // Error Handling
 process.on('uncaughtException', (err: Error) => {
@@ -26,12 +37,7 @@ process.on('unhandledRejection', async (err: Error) => {
     // Disconnect from DB
     await disconnectDB();
 
-    // Close server if it was initiated
-    if (!server) process.exit(1);
-
-    server.close(() => {
-      process.exit(1);
-    });
+    server.close(() => process.exit(1));
   } catch (error) {
     logger.error(`Error during server shutting down: ${error}`);
     process.exit(1);
@@ -44,7 +50,7 @@ showDBConnectionStatus();
 // Connect to Database
 connectDB()
   .then(() => {
-    server = app.listen(config.PORT, () => {
+    server.listen(config.PORT, () => {
       logger.info(`Server is running on port ${config.PORT}`);
     });
   })

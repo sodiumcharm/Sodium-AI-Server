@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import passport from 'passport';
 import { uploadUserImage } from '../middlewares/multer.middleware';
+import { imageCheckerAI } from '../middlewares/imageChecker.middleware';
 import {
   registerUser,
   signInUser,
@@ -15,7 +16,9 @@ import { oAuthSignIn } from '../controllers/oauth/oauth.controllers';
 
 const router = Router();
 
-router.route('/signup').post(authLimiter, uploadUserImage.single('profileImage'), registerUser);
+router
+  .route('/signup')
+  .post(authLimiter, uploadUserImage.single('profileImage'), imageCheckerAI, registerUser);
 
 router.route('/signin').post(authLimiter, signInUser);
 

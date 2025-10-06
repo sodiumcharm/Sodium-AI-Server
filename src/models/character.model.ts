@@ -142,6 +142,16 @@ const characterSchema = new mongoose.Schema<CharacterDocument>(
       type: String,
       required: true,
       trim: true,
+      enum: [
+        'gemini-2.5-flash',
+        'gemini-2.5-pro',
+        'gemini-2.5-flash-lite',
+        'gemini-1.5-flash',
+        'gemini-1.5-pro',
+        'mistralai/mistral-7B-instruct-v0.2',
+        'meta-llama/Llama-3-8b-instruct',
+        'deepseek-ai/DeepSeek-Coder-33B-instruct',
+      ],
     },
     dialogueStyle: {
       type: mongoose.Schema.Types.ObjectId,

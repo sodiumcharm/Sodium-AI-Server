@@ -4,8 +4,12 @@ import ApiResponse from '../../utils/apiResponse';
 import ApiError from '../../utils/apiError';
 import { AuthRequest } from '../../types/types';
 import { otpRequestSchema, otpVerificationSchema } from '../../validators/otp.validators';
-import { createAndSendOTP, verifyOTP } from './otp.utils';
+import { createAndSendOTP, verifyOTP, generateSecretCode } from './otp.utils';
 import User from '../../models/user.model';
+
+// *************************************************************
+// REQUESTING OTP
+// *************************************************************
 
 export const requestOTP = asyncHandler(async function (
   req: AuthRequest,
@@ -65,13 +69,17 @@ export const requestOTP = asyncHandler(async function (
     );
 });
 
+// *************************************************************
+// VERIFYING OTP
+// *************************************************************
+
 export const verifySentOTP = asyncHandler(async function (
   req: Request,
   res: Response,
   next: NextFunction
 ) {
   if (!req.body) {
-    return next(new ApiError(400, 'Empty Request Body: Please provide OTP, context and User Id!'));
+    return next(new ApiError(400, 'Empty Request Body: Please provide otp, context and userId!'));
   }
 
   const { data, error } = otpVerificationSchema.safeParse(req.body);
@@ -105,11 +113,21 @@ export const verifySentOTP = asyncHandler(async function (
     await User.findByIdAndUpdate(userId, { $set: { isEmailVerified: true } });
   }
 
+  let generatedCode: string | null = null;
+
+  if (context === 'forgot-password') {
+    generatedCode = await generateSecretCode(userId);
+
+    if (!generatedCode) {
+      return next(new ApiError(500, 'Failed to verify OTP for reset password!'));
+    }
+  }
+
   res
     .status(200)
     .json(
       new ApiResponse(
-        null,
+        { secretCode: generatedCode },
         `${context === 'forgot-password' ? 'reset-password' : 'email-verified'}`
       )
     );

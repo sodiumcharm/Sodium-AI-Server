@@ -1,11 +1,29 @@
+import crypto from 'crypto';
 import bcrypt from 'bcrypt';
 import OTP from '../../models/otp.model';
+import SecretCode from '../../models/secretCode.model';
 import sendMail from '../../config/nodemailer';
 import generateOTPMail from '../../templates/otp.mail';
 import { SuccessResult, UserDocument } from '../../types/types';
 
+const capitals = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+const smalls = 'abcdefghijklmnopqrstuvwxyz';
+const numbers = '0123456789';
+const allChars = [...capitals, ...smalls, ...numbers];
+
 const randomOTPGenerator = function (): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
+};
+
+const randomCodeGenerator = function (allChars: string[]): string {
+  const array = new Uint32Array(15);
+  crypto.getRandomValues(array);
+
+  let code = '';
+  for (let i = 0; i < 15; i++) {
+    code += allChars[array[i] % allChars.length];
+  }
+  return code;
 };
 
 export const createAndSendOTP = async function (
@@ -94,5 +112,26 @@ export const verifyOTP = async function (
       success: false,
       message: 'Failed to verify OTP! Please try again.',
     };
+  }
+};
+
+export const generateSecretCode = async function (userId: string): Promise<string | null> {
+  const secretCode = randomCodeGenerator(allChars);
+
+  try {
+    const hashedCode = await bcrypt.hash(secretCode, 10);
+
+    await SecretCode.deleteMany({ userId });
+
+    const code = await SecretCode.create({
+      userId,
+      code: hashedCode,
+    });
+
+    if (!code) return null;
+
+    return secretCode;
+  } catch (error) {
+    return null;
   }
 };
