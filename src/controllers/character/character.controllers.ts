@@ -564,17 +564,17 @@ export const dropCharacter = asyncHandler(async function (
 
   const { characterId } = req.params;
 
-  const character = await Character.findById(characterId);
+  const character = await Character.findById(characterId).select('+avatarId +musicId');
 
   if (!character) {
     return next(new ApiError(404, 'Character does not exist!'));
   }
 
-  if (verifiedUser.role === 'user' && !verifiedUser.id.equals(character.creator)) {
+  if (verifiedUser.role === 'user' && !verifiedUser._id.equals(character.creator)) {
     return next(new ApiError(400, 'You are not allowed to delete characters not owned by you!'));
   }
 
-  const characterImage = await Image.findById(character.characterImage);
+  const characterImage = await Image.findById(character.characterImage).select('+imageId');
 
   if (!characterImage) {
     return next(new ApiError(404, 'Failed to delete character image!'));

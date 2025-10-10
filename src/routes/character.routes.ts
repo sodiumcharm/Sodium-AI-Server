@@ -7,6 +7,7 @@ import {
   clearCommunicationMemory,
   communicateCharacter,
   createCharacter,
+  dropCharacter,
   followCharacter,
 } from '../controllers/character/character.controllers';
 
@@ -29,5 +30,7 @@ router.route('/communicate').post(softAuthChecker, checkEmailVerification, commu
 router.route('/follow/:characterId').patch(verifyAuth, checkEmailVerification, followCharacter);
 
 router.route('/clear-memory/:characterId').patch(softAuthChecker, clearCommunicationMemory);
+
+router.route('/drop/:characterId').delete(verifyAuth, dropCharacter);
 
 export default router;
