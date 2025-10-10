@@ -40,3 +40,23 @@ export const showDBConnectionStatus = function (): void {
     logger.error(`MongoDB Connection Error: ${err}`);
   });
 };
+
+export const runInTransaction = async function <T>(
+  callback: (session: mongoose.ClientSession) => Promise<T>
+): Promise<T | 'error'> {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+  try {
+    const result = await callback(session);
+    await session.commitTransaction();
+    return result;
+  } catch (error) {
+    if (error instanceof Error && config.NODE_ENV === 'development') {
+      logger.error(`Transaction Error: ${error.message}`);
+    }
+    await session.abortTransaction();
+    return 'error';
+  } finally {
+    session.endSession();
+  }
+};

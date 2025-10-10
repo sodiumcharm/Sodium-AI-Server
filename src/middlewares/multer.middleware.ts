@@ -1,10 +1,10 @@
 import multer, { StorageEngine } from 'multer';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import { MAX_CHARACTER_IMAGE_SIZE, MAX_USER_IMAGE_SIZE } from '../constants';
-import { imageFilter } from '../config/multerFilters';
+import { MAX_CHARACTER_DATA_SIZE, MAX_USER_IMAGE_SIZE } from '../constants';
+import { characterDataFilter, imageFilter } from '../config/multerFilters';
 
-const storage: StorageEngine = multer.diskStorage({
+const diskStorage: StorageEngine = multer.diskStorage({
   destination: function (req, file, cb) {
     cb(null, './public/temp');
   },
@@ -15,14 +15,16 @@ const storage: StorageEngine = multer.diskStorage({
   },
 });
 
+const memoryStorage: StorageEngine = multer.memoryStorage();
+
 export const uploadUserImage = multer({
-  storage,
+  storage: memoryStorage,
   limits: { fileSize: MAX_USER_IMAGE_SIZE },
   fileFilter: imageFilter,
 });
 
-export const uploadCharacterImage = multer({
-  storage,
-  limits: { fileSize: MAX_CHARACTER_IMAGE_SIZE },
-  fileFilter: imageFilter,
+export const uploadCharacterData = multer({
+  storage: diskStorage,
+  limits: { fileSize: MAX_CHARACTER_DATA_SIZE },
+  fileFilter: characterDataFilter,
 });

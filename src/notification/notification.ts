@@ -3,42 +3,63 @@ import { Notification, NotificationReceiver } from '../types/types';
 import User from '../models/user.model';
 
 const createNotification = async function (
-  type: 'subscribe' | 'communicate' | 'comment' | 'follow',
+  type: 'subscribe' | 'communicate' | 'comment' | 'follow' | 'new',
   emitter: Types.ObjectId,
-  receiver: NotificationReceiver
+  receiver?: NotificationReceiver
 ) {
   try {
     let notification: Notification;
 
-    if (receiver.receiverCharacter) {
-      notification = {
-        notificationType: type,
-        emitter,
-        receiverUser: receiver.receiverUser,
-        receiverCharacter: receiver.receiverCharacter,
-      };
+    if (receiver) {
+      if (receiver.receiverCharacter) {
+        notification = {
+          notificationType: type,
+          emitter,
+          receiverUser: receiver.receiverUser,
+          receiverCharacter: receiver.receiverCharacter,
+        };
+      } else {
+        notification = {
+          notificationType: type,
+          emitter,
+          receiverUser: receiver.receiverUser,
+        };
+      }
+
+      const notifiedUser = await User.findByIdAndUpdate(
+        receiver.receiverUser,
+        {
+          $push: {
+            notifications: {
+              $each: [notification],
+              $slice: -50,
+            },
+          },
+        },
+        { new: true }
+      );
+
+      if (!notifiedUser) return false;
     } else {
       notification = {
         notificationType: type,
         emitter,
-        receiverUser: receiver.receiverUser,
       };
-    }
 
-    const notifiedUser = await User.findByIdAndUpdate(
-      receiver.receiverUser,
-      {
-        $push: {
-          notifications: {
-            $each: [notification],
-            $slice: -50,
+      const notifiedUser = await User.updateMany(
+        { subscribing: emitter },
+        {
+          $push: {
+            notifications: {
+              $each: [notification],
+              $slice: -50,
+            },
           },
-        },
-      },
-      { new: true }
-    );
+        }
+      );
 
-    if (!notifiedUser) return false;
+      if (!notifiedUser) return false;
+    }
 
     return true;
   } catch (error) {

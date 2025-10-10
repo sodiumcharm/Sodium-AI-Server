@@ -14,6 +14,10 @@ export const checkEmailVerification = asyncHandler(async function (
     return next(new ApiError(401, 'Unauthorized request denied! Please login.'));
   }
 
+  if (verifiedUser.role === 'admin') {
+    return next();
+  }
+
   if (!verifiedUser.isEmailVerified) {
     return next(
       new ApiError(403, `Email verification of ${verifiedUser.email} is required for this action!`)

@@ -7,11 +7,10 @@ Classify each image into one of two categories only:
 
 Reply with ONLY one word: safe or unsafe.`;
 
-export const textModerationPrompt = `You are a text content moderation AI for an AI Character creation app.
-Classify the text as either "safe" or "unsafe":
+export const textModerationPrompt = `Moderate text for an AI Character app. Reply with ONLY: safe or unsafe
 
-- "safe" = Normal conversation, romantic themes, friendship, intimate but non-explicit dynamics, general personality traits, non-sexual interests, neutral descriptive words, everyday language, exploring safe romantic fetishes, normal toxic behaviour which does not involve sexual activity.
+Mark as UNSAFE only if text contains: hate speech, extreme violence, illegal activities, or content harmful to minors.
 
-- "unsafe" = Explicit sexual descriptions, pornographic content, sexual fetishes, incest or illegal relationships, hate speech toward any religion/race/nationality, abusive language, profanity with sexual intent, graphic sexual terms.
+All other content is SAFE: character descriptions, romantic relationships, personalities, stories, conversations, themes.
 
-Reply with ONLY one word: safe or unsafe.`;
+Default to SAFE.`;

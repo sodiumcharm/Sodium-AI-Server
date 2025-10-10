@@ -2,6 +2,7 @@ import { Router } from 'express';
 import passport from 'passport';
 import { uploadUserImage } from '../middlewares/multer.middleware';
 import { imageCheckerAI } from '../middlewares/imageChecker.middleware';
+import { processProfileImage } from '../middlewares/imageProcessor.middleware';
 import {
   registerUser,
   signInUser,
@@ -18,7 +19,13 @@ const router = Router();
 
 router
   .route('/signup')
-  .post(authLimiter, uploadUserImage.single('profileImage'), imageCheckerAI, registerUser);
+  .post(
+    authLimiter,
+    uploadUserImage.single('profileImage'),
+    processProfileImage,
+    imageCheckerAI,
+    registerUser
+  );
 
 router.route('/signin').post(authLimiter, signInUser);
 

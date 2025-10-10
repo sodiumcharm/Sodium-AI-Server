@@ -254,13 +254,17 @@ export const signOutUser = asyncHandler(async function (
     .clearCookie('refreshToken', refreshTokenCookieOption)
     .json(new ApiResponse(null, 'User logged out successfully.'));
 
-  const verifiedUser = req.user;
+  try {
+    const verifiedUser = req.user;
 
-  if (!verifiedUser) return;
+    if (!verifiedUser) return;
 
-  const user = await User.findById(verifiedUser._id);
+    const user = await User.findById(verifiedUser._id);
 
-  if (!user) return;
+    if (!user) return;
 
-  await User.findByIdAndUpdate(user._id, { $unset: { refreshToken: '' } });
+    await User.findByIdAndUpdate(user._id, { $unset: { refreshToken: '' } });
+  } catch (error) {
+    return;
+  }
 });

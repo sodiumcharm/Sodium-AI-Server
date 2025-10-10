@@ -5,6 +5,7 @@ import ApiError from '../utils/apiError';
 import User from '../models/user.model.js';
 import { config } from '../config/config.js';
 import { AuthRequest } from '../types/types.js';
+import userModerator from '../moderator/userModerator.js';
 
 export const verifyAuth = asyncHandler(async function (req: AuthRequest, _, next: NextFunction) {
   try {
@@ -24,6 +25,12 @@ export const verifyAuth = asyncHandler(async function (req: AuthRequest, _, next
 
     if (!user) {
       return next(new ApiError(401, 'The user belongs to this token does no longer exist!'));
+    }
+
+    const moderationResult = await userModerator(user);
+
+    if (!moderationResult.success) {
+      return next(new ApiError(moderationResult.statusCode, moderationResult.message));
     }
 
     if (typeof decoded.iat === 'undefined') {
@@ -69,6 +76,12 @@ export const softAuthChecker = asyncHandler(async function (
     const user = await User.findById(decoded._id);
 
     if (!user) return next();
+
+    const moderationResult = await userModerator(user);
+
+    if (!moderationResult.success) {
+      return next(new ApiError(moderationResult.statusCode, moderationResult.message));
+    }
 
     if (typeof decoded.iat === 'undefined') return next();
 

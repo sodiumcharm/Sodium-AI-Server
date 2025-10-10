@@ -26,19 +26,93 @@ export type EnvObject = {
   REFRESH_TOKEN_EXPIRY: string;
   GOOGLE_CLIENT_ID: string;
   GOOGLE_CLIENT_SECRET: string;
+  OPENAI_API_KEY: string;
 };
 
 export type CloudinaryDestroyResult = {
   result: 'ok' | 'not found' | 'error';
 };
 
+export type NotificationType = 'subscribe' | 'communicate' | 'comment' | 'follow' | 'new';
+
 export type Notification = {
-  notificationType: 'subscribe' | 'communicate' | 'comment' | 'follow';
+  notificationType: NotificationType;
   emitter: Types.ObjectId;
-  receiverUser: Types.ObjectId;
+  receiverUser?: Types.ObjectId;
   receiverCharacter?: Types.ObjectId;
   createdAt?: Date;
 };
+
+export type ModelMemory = {
+  'gemini-2.5-flash': number;
+  'gemini-2.5-pro': number;
+  'gemini-2.5-flash-lite': number;
+  'gemini-2.0-flash': number;
+  'gemini-2.0-flash-lite': number;
+  'gpt-5': number;
+  'gpt-5-turbo': number;
+  'gpt-5-32k': number;
+  'gpt-4': number;
+  'gpt-4-turbo': number;
+  'gpt-4o': number;
+  'gpt-4o-mini': number;
+  'gpt-3.5-turbo': number;
+};
+
+export type ResponseStyle = 'role-play' | 'professional';
+
+export type LlmModel =
+  | 'gemini-2.5-flash'
+  | 'gemini-2.5-pro'
+  | 'gemini-2.5-flash-lite'
+  | 'gemini-2.0-flash'
+  | 'gemini-2.0-flash-lite'
+  | 'gpt-5'
+  | 'gpt-5-turbo'
+  | 'gpt-5-32k'
+  | 'gpt-4'
+  | 'gpt-4-turbo'
+  | 'gpt-4o'
+  | 'gpt-4o-mini'
+  | 'gpt-3.5-turbo';
+
+export type MbtiType =
+  | 'ISTJ'
+  | 'ISFJ'
+  | 'INFJ'
+  | 'INTJ'
+  | 'ISTP'
+  | 'ISFP'
+  | 'INFP'
+  | 'INTP'
+  | 'ESTP'
+  | 'ESFP'
+  | 'ENFP'
+  | 'ENTP'
+  | 'ESTJ'
+  | 'ESFJ'
+  | 'ENFJ'
+  | 'ENTJ';
+
+export type Zodiac =
+  | 'aries'
+  | 'taurus'
+  | 'gemini'
+  | 'cancer'
+  | 'leo'
+  | 'virgo'
+  | 'libra'
+  | 'scorpio'
+  | 'sagittarius'
+  | 'capricorn'
+  | 'aquarius'
+  | 'pisces';
+
+export type AttachmentType = 'secure' | 'anxious' | 'avoidant' | 'disorganised';
+
+export type CharacterGender = 'male' | 'female' | 'non-binary';
+
+export type EnneagramType = '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9';
 
 export interface UserDocument extends Document {
   _id: Types.ObjectId;
@@ -56,6 +130,9 @@ export interface UserDocument extends Document {
   profileDescription: string;
   refreshToken?: string;
   twoFAEnabled: boolean;
+  role: 'user' | 'admin';
+  status: 'active' | 'suspended' | 'banned';
+  isPaid: boolean;
   gender: 'male' | 'female' | 'unknown';
   personality?: string;
   subscriberCount: number;
@@ -66,7 +143,6 @@ export interface UserDocument extends Document {
   creationCount: number;
   creations: Types.ObjectId[];
   drafts: Types.ObjectId[];
-  createdDialogues: Types.ObjectId[];
   followingCharacters: Types.ObjectId[];
   communications: Types.ObjectId[];
   savedImages: Types.ObjectId[];
@@ -82,44 +158,44 @@ export interface UserDocument extends Document {
 declare global {
   namespace Express {
     interface User extends UserDocument {}
+
+    interface Request {
+      files?: {
+        characterImage?: Express.Multer.File[];
+        characterAvatar?: Express.Multer.File[];
+        music?: Express.Multer.File[];
+      };
+    }
   }
 }
 
 export interface CharacterDocument extends Document {
   _id: Types.ObjectId;
   name: string;
-  gender: 'male' | 'female' | 'non-binary';
+  gender: CharacterGender;
   description: string;
-  creator?: Types.ObjectId;
+  creator: Types.ObjectId;
+  followerCount: number;
   followers: Types.ObjectId[];
   communicatorCount: number;
   communicators: Types.ObjectId[];
   comments: Types.ObjectId[];
   isApproved: boolean;
   relationship: string;
-  responseStyle: 'role-play' | 'professional';
+  responseStyle: ResponseStyle;
   characterAvatar?: string;
   avatarId?: string;
   characterImage: Types.ObjectId;
   personality: string;
-  mbti?: string;
-  enneagram?: number;
-  attachmentStyle: 'secure' | 'anxious' | 'avoidant' | 'disorganised';
-  zodiac?: string;
+  mbti?: MbtiType;
+  enneagram?: EnneagramType;
+  attachmentStyle: AttachmentType;
+  zodiac?: Zodiac;
   voice: string;
   music?: string;
   musicId?: string;
   opening: string;
-  llmModel:
-    | 'gemini-2.5-flash'
-    | 'gemini-2.5-pro'
-    | 'gemini-2.5-flash-lite'
-    | 'gemini-1.5-flash'
-    | 'gemini-1.5-pro'
-    | 'mistralai/mistral-7B-instruct-v0.2'
-    | 'meta-llama/Llama-3-8b-instruct'
-    | 'deepseek-ai/DeepSeek-Coder-33B-instruct';
-  dialogueStyle?: Types.ObjectId;
+  llmModel: LlmModel;
   tags?: string;
   visibility: 'public' | 'private';
   reports: Types.ObjectId[];
@@ -127,18 +203,43 @@ export interface CharacterDocument extends Document {
   updatedAt: Date;
 }
 
-export interface MessageDocument extends Document {
-  sender: 'user' | 'character';
+export type CharacterData = {
+  name: string;
+  gender: CharacterGender;
+  description: string;
+  creator?: string;
+  relationship: string;
+  responseStyle: ResponseStyle;
+  isApproved?: boolean;
+  characterAvatar?: string;
+  avatarId?: string;
+  characterImage?: string;
+  imageId?: string;
+  personality: string;
+  mbti?: MbtiType;
+  enneagram?: EnneagramType;
+  attachmentStyle?: AttachmentType;
+  zodiac?: Zodiac;
+  voice?: string;
+  music?: string;
+  musicId?: string;
+  opening: string;
+  llmModel?: LlmModel;
+  tags?: string;
+  visibility?: 'public' | 'private';
+};
+
+export type MessageDocument = {
+  sender: 'user' | 'you';
   content: string;
   timestamp: Date;
-}
+};
 
 export interface MemoryDocument extends Document {
   _id: Types.ObjectId;
   user: Types.ObjectId;
   character: Types.ObjectId;
   messages: MessageDocument[];
-  contextMemory: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -146,24 +247,23 @@ export interface MemoryDocument extends Document {
 export interface DraftDocument extends Document {
   _id: Types.ObjectId;
   name?: string;
-  gender?: 'male' | 'female' | 'non-binary';
+  gender?: CharacterGender;
   description?: string;
   creator?: Types.ObjectId;
   relationship?: string;
-  responseStyle?: 'role-play' | 'professional';
+  responseStyle?: ResponseStyle;
   characterAvatar?: string;
   avatarId?: string;
   characterImage?: Types.ObjectId;
   personality?: string;
-  mbti?: string;
-  enneagram?: number;
-  attachmentStyle: 'secure' | 'anxious' | 'avoidant' | 'disorganised';
+  mbti?: MbtiType;
+  enneagram?: EnneagramType;
+  attachmentStyle: AttachmentType;
   voice?: string;
   music?: string;
   musicId?: string;
   opening?: string;
-  llmModel?: string;
-  dialogueStyle?: Types.ObjectId;
+  llmModel?: LlmModel;
   tags?: string;
   visibility?: 'public' | 'private';
   createdAt: Date;
@@ -213,25 +313,20 @@ export interface OtpDocument extends Document {
   createdAt: Date;
 }
 
+export interface SuspensionDocument extends Document {
+  _id: Types.ObjectId;
+  user: Types.ObjectId;
+  reason: string;
+  suspensionEndDate: Date;
+  suspensionCount: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface SecretCodeDocument extends Document {
   userId: Types.ObjectId;
   code: string;
   createdAt: Date;
-}
-
-export interface DialogueMessageDocument extends Document {
-  sender: 'user' | 'character';
-  content: string;
-}
-
-export interface DialogueDocument extends Document {
-  _id: Types.ObjectId;
-  user: Types.ObjectId;
-  dialogueName: string;
-  description: string;
-  dialogues: DialogueMessageDocument[];
-  createdAt: Date;
-  updatedAt: Date;
 }
 
 export type ImagePrompt = {
@@ -275,36 +370,30 @@ export type NotificationReceiver = {
 };
 
 export type PersonalityTraits = {
-  mbti?:
-    | 'ISTJ'
-    | 'ISFJ'
-    | 'INFJ'
-    | 'INTJ'
-    | 'ISTP'
-    | 'ISFP'
-    | 'INFP'
-    | 'INTP'
-    | 'ESTP'
-    | 'ESFP'
-    | 'ENFP'
-    | 'ENTP'
-    | 'ESTJ'
-    | 'ESFJ'
-    | 'ENFJ'
-    | 'ENTJ';
-  enneagram?: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
-  attachmentStyle?: 'secure' | 'anxious' | 'avoidant' | 'disorganised';
-  zodiac?:
-    | 'Aries'
-    | 'Taurus'
-    | 'Gemini'
-    | 'Cancer'
-    | 'Leo'
-    | 'Virgo'
-    | 'Libra'
-    | 'Scorpio'
-    | 'Sagittarius'
-    | 'Capricorn'
-    | 'Aquarius'
-    | 'Pisces';
+  mbti?: MbtiType;
+  enneagram?: EnneagramType;
+  attachmentStyle?: AttachmentType;
+  zodiac?: Zodiac;
+};
+
+export type ChatData = {
+  text: string;
+  llmModel: LlmModel;
+  characterName: string;
+  gender: CharacterGender;
+  personality: string;
+  opening?: string;
+  responseStyle: ResponseStyle;
+  mbti?: MbtiType;
+  enneagram?: EnneagramType;
+  attachmentStyle?: AttachmentType;
+  zodiac?: Zodiac;
+  chatHistory?: MessageDocument[];
+};
+
+export type UserModerationResult = {
+  success: boolean;
+  statusCode: 200 | 400 | 500;
+  status: 'allowed' | 'suspended' | 'banned' | 'activation-error' | 'error';
+  message: string;
 };

@@ -76,6 +76,20 @@ const userSchema = new mongoose.Schema<UserDocument>(
       type: Boolean,
       default: false,
     },
+    role: {
+      type: String,
+      default: 'user',
+      enum: ['user', 'admin'],
+    },
+    status: {
+      type: String,
+      default: 'active',
+      enum: ['active', 'suspended', 'banned'],
+    },
+    isPaid: {
+      type: Boolean,
+      default: false,
+    },
     gender: {
       type: String,
       trim: true,
@@ -127,12 +141,6 @@ const userSchema = new mongoose.Schema<UserDocument>(
         ref: 'Draft',
       },
     ],
-    createdDialogues: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'DialogueStyle',
-      },
-    ],
     followingCharacters: [
       {
         type: mongoose.Schema.Types.ObjectId,
@@ -157,7 +165,7 @@ const userSchema = new mongoose.Schema<UserDocument>(
           type: String,
           required: true,
           trim: true,
-          enum: ['subscribe', 'communicate', 'comment', 'follow'],
+          enum: ['subscribe', 'communicate', 'comment', 'follow', 'new'],
         },
         emitter: {
           type: mongoose.Schema.Types.ObjectId,
@@ -167,7 +175,6 @@ const userSchema = new mongoose.Schema<UserDocument>(
         receiverUser: {
           type: mongoose.Schema.Types.ObjectId,
           ref: 'User',
-          required: true,
         },
         receiverCharacter: {
           type: mongoose.Schema.Types.ObjectId,

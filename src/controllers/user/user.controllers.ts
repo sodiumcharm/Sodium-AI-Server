@@ -1,5 +1,4 @@
 import { Request, Response, NextFunction } from 'express';
-import { Types } from 'mongoose';
 import bcrypt from 'bcrypt';
 import { addMonths } from 'date-fns';
 import asyncHandler from '../../utils/asyncHandler';
@@ -20,6 +19,7 @@ import SecretCode from '../../models/secretCode.model';
 import { uploadToCloudinary, deleteFromCloudinary } from '../../services/cloudinary';
 import contentModerator from '../../moderator/contentModerator';
 import createNotification from '../../notification/notification';
+import { runInTransaction } from '../../services/mongoose';
 
 // *************************************************************
 // GET USER's OWN DETAILS
@@ -510,23 +510,28 @@ export const subscribe = asyncHandler(async function (
 
   let action: 'subscribe' | 'unsubscribe' = 'subscribe';
 
-  if (!verifiedUser.subscribing.includes(subscribeeUser._id)) {
+  if (!verifiedUser.subscribing.some(id => id.equals(subscribeeId))) {
     action = 'subscribe';
 
-    const [updatedSubscriber, updatedSubscribee] = await Promise.all([
-      User.findByIdAndUpdate(
+    const result = await runInTransaction(async session => {
+      const updatedSubscriber = await User.findByIdAndUpdate(
         verifiedUser._id,
         { $addToSet: { subscribing: subscribeeUser._id }, $inc: { subscribingCount: 1 } },
-        { new: true }
-      ),
-      User.findByIdAndUpdate(
+        { new: true, session }
+      );
+
+      const updatedSubscribee = await User.findByIdAndUpdate(
         subscribeeId,
         { $addToSet: { subscribers: verifiedUser._id }, $inc: { subscriberCount: 1 } },
-        { new: true }
-      ),
-    ]);
+        { new: true, session }
+      );
 
-    if (!updatedSubscriber || !updatedSubscribee) {
+      if (!updatedSubscriber || !updatedSubscribee) {
+        throw new Error('Subscription failed because of internal server error!');
+      }
+    });
+
+    if (result === 'error') {
       return next(new ApiError(500, 'Subscription failed because of internal server error!'));
     }
 
@@ -534,20 +539,25 @@ export const subscribe = asyncHandler(async function (
   } else {
     action = 'unsubscribe';
 
-    const [updatedSubscriber, updatedSubscribee] = await Promise.all([
-      User.findByIdAndUpdate(
+    const result = await runInTransaction(async session => {
+      const updatedSubscriber = await User.findByIdAndUpdate(
         verifiedUser._id,
         { $pull: { subscribing: subscribeeUser._id }, $inc: { subscribingCount: -1 } },
-        { new: true }
-      ),
-      User.findByIdAndUpdate(
-        subscribeeId,
-        { $pull: { subscribers: verifiedUser._id }, $inc: { subscribersCount: -1 } },
-        { new: true }
-      ),
-    ]);
+        { new: true, session }
+      );
 
-    if (!updatedSubscriber || !updatedSubscribee) {
+      const updatedSubscribee = await User.findByIdAndUpdate(
+        subscribeeId,
+        { $pull: { subscribers: verifiedUser._id }, $inc: { subscriberCount: -1 } },
+        { new: true, session }
+      );
+
+      if (!updatedSubscriber || !updatedSubscribee) {
+        throw new Error('Unsubscription failed because of internal server error!');
+      }
+    });
+
+    if (result === 'error') {
       return next(new ApiError(500, 'Unsubscription failed because of internal server error!'));
     }
   }

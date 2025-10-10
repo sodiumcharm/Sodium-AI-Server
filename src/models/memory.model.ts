@@ -18,7 +18,7 @@ const memorySchema = new mongoose.Schema<MemoryDocument>(
         sender: {
           type: String,
           required: true,
-          enum: ['user', 'character'],
+          enum: ['user', 'you'],
         },
         content: {
           type: String,
@@ -30,11 +30,6 @@ const memorySchema = new mongoose.Schema<MemoryDocument>(
         },
       },
     ],
-    contextMemory: {
-      type: String,
-      default: '',
-      maxlength: 200,
-    },
   },
   { timestamps: true }
 );

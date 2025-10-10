@@ -19,6 +19,7 @@ const _config: EnvObject = {
   REFRESH_TOKEN_EXPIRY: process.env.REFRESH_TOKEN_EXPIRY as string,
   GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID as string,
   GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET as string,
+  OPENAI_API_KEY: process.env.OPENAI_API_KEY as string,
 };
 
 export const config: EnvObject = Object.freeze(_config);
