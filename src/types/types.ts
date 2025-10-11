@@ -135,6 +135,9 @@ export interface UserDocument extends Document {
   isPaid: boolean;
   gender: 'male' | 'female' | 'unknown';
   personality?: string;
+  mbti?: MbtiType;
+  enneagram?: EnneagramType;
+  attachmentStyle: AttachmentType;
   subscriberCount: number;
   subscribers: Types.ObjectId[];
   subscribingCount: number;

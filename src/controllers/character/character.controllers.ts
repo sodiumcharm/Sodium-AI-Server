@@ -19,10 +19,11 @@ import createNotification from '../../notification/notification';
 import {
   characterCommunicationSchema,
   createCharacterSchema,
+  editCharacterSchema,
 } from '../../validators/character.validators';
 import Image from '../../models/image.model';
 import Memory from '../../models/memory.model';
-import { communicate } from './character.utils';
+import { communicate, getReplyAdvices } from './character.utils';
 import { MODEL_MEMORY } from '../../constants';
 import { runInTransaction } from '../../services/mongoose';
 
@@ -548,6 +549,30 @@ export const clearCommunicationMemory = asyncHandler(async function (
 });
 
 // *************************************************************
+// EDIT CHARACTER
+// *************************************************************
+
+export const editCharacter = asyncHandler(async function (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) {
+  const verifiedUser = req.user;
+
+  if (!verifiedUser) {
+    return next(new ApiError(401, 'Unauthorized request denied!'));
+  }
+
+  const { data, error } = editCharacterSchema.safeParse(req.body);
+
+  if (error) {
+    return next(new ApiError(400, error.issues[0].message));
+  }
+
+  const {} = data;
+});
+
+// *************************************************************
 // DELETE CHARACTER
 // *************************************************************
 
@@ -662,4 +687,46 @@ export const dropCharacter = asyncHandler(async function (
   }
 
   res.status(200).json(new ApiResponse(null, 'Character deleted successfully.'));
+});
+
+// *************************************************************
+// GET REPLY ADVICES
+// *************************************************************
+
+export const getPossibleReplies = asyncHandler(async function (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) {
+  const verifiedUser = req.user;
+
+  if (!verifiedUser) {
+    return next(new ApiError(401, 'Unauthorized request denied!'));
+  }
+
+  const { characterId } = req.params;
+
+  const character = await Character.findById(characterId);
+
+  if (!character) {
+    return next(new ApiError(404, 'Character does not exist!'));
+  }
+
+  if (
+    verifiedUser.role === 'user' &&
+    !verifiedUser.isPaid &&
+    character.llmModel.startsWith('gpt')
+  ) {
+    return next(new ApiError(400, 'Paid subscription required to use GPT models!'));
+  }
+
+  const replies = await getReplyAdvices(character, verifiedUser);
+
+  if (replies === 'error') {
+    return next(new ApiError(500, 'Failed to generate reply advices!'));
+  }
+
+  res
+    .status(200)
+    .json(new ApiResponse({ replies }, 'You have successfully received reply advices'));
 });

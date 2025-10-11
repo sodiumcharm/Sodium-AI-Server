@@ -9,6 +9,7 @@ import {
   createCharacter,
   dropCharacter,
   followCharacter,
+  getPossibleReplies,
 } from '../controllers/character/character.controllers';
 
 const router = Router();
@@ -25,7 +26,9 @@ router.route('/create').post(
   createCharacter
 );
 
-router.route('/communicate').post(softAuthChecker, checkEmailVerification, communicateCharacter);
+router.route('/communicate').post(softAuthChecker, communicateCharacter);
+
+router.route('/generate-replies/:characterId').get(verifyAuth, getPossibleReplies);
 
 router.route('/follow/:characterId').patch(verifyAuth, checkEmailVerification, followCharacter);
 
