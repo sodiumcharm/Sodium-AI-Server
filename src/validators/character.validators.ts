@@ -152,7 +152,7 @@ export const characterCommunicationSchema = z.object({
 export const editCharacterSchema = z
   .object({
     characterId: z
-      .string({ error: 'Empty or invalid input type was provided for character!' })
+      .string({ error: 'Invalid input type was provided for character!' })
       .trim()
       .regex(/^[a-f\d]{24}$/i, { message: 'Invalid character id provided!' }),
     name: z

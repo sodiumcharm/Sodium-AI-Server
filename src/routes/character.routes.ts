@@ -8,6 +8,7 @@ import {
   communicateCharacter,
   createCharacter,
   dropCharacter,
+  editCharacter,
   followCharacter,
   getPossibleReplies,
 } from '../controllers/character/character.controllers';
@@ -33,6 +34,17 @@ router.route('/generate-replies/:characterId').get(verifyAuth, getPossibleReplie
 router.route('/follow/:characterId').patch(verifyAuth, checkEmailVerification, followCharacter);
 
 router.route('/clear-memory/:characterId').patch(softAuthChecker, clearCommunicationMemory);
+
+router.route('/edit').patch(
+  verifyAuth,
+  uploadCharacterData.fields([
+    { name: 'characterImage', maxCount: 1 },
+    { name: 'characterAvatar', maxCount: 1 },
+    { name: 'music', maxCount: 1 },
+  ]),
+  imageCheckerAI,
+  editCharacter
+);
 
 router.route('/drop/:characterId').delete(verifyAuth, dropCharacter);
 

@@ -59,6 +59,8 @@ export type ModelMemory = {
   'gpt-3.5-turbo': number;
 };
 
+export type TestName = 'mbti' | 'enneagram' | 'attachment-type' | 'selfEsteem' | 'EQ';
+
 export type ResponseStyle = 'role-play' | 'professional';
 
 export type LlmModel =
@@ -232,6 +234,30 @@ export type CharacterData = {
   visibility?: 'public' | 'private';
 };
 
+export type CharacterEditData = {
+  characterId?: string;
+  name?: string;
+  description?: string;
+  relationship?: string;
+  responseStyle?: ResponseStyle;
+  characterAvatar?: string;
+  avatarId?: string;
+  characterImage?: string;
+  imageId?: string;
+  personality?: string;
+  mbti?: MbtiType;
+  enneagram?: EnneagramType;
+  attachmentStyle?: AttachmentType;
+  zodiac?: Zodiac;
+  voice?: string;
+  music?: string;
+  musicId?: string;
+  opening?: string;
+  llmModel?: LlmModel;
+  tags?: string;
+  visibility?: 'public' | 'private';
+};
+
 export type MessageDocument = {
   sender: 'user' | 'you';
   content: string;
@@ -330,6 +356,26 @@ export interface SecretCodeDocument extends Document {
   userId: Types.ObjectId;
   code: string;
   createdAt: Date;
+}
+
+export type MbtiResult = {
+  Fe: Number;
+  Fi: Number;
+  Te: Number;
+  Ti: Number;
+  Ne: Number;
+  Ni: Number;
+  Se: Number;
+  Si: Number;
+};
+
+export interface PersonalityResultDocument extends Document {
+  _id: Types.ObjectId;
+  testName: TestName;
+  userId: Types.ObjectId;
+  mbtiAnalysis: MbtiResult;
+  result: string;
+  details: string;
 }
 
 export type ImagePrompt = {

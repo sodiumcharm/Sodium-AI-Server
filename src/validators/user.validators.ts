@@ -82,15 +82,52 @@ export const profileDescriptionSchema = z.object({
     .max(200, { message: 'Maximum allowed description length is 200 characters!' }),
 });
 
-export const userPersonalitySchema = z.object({
-  personality: z
-    .string({ error: 'Invalid input type was provided for personality!' })
-    .trim()
-    .max(500, { message: 'Maximum allowed personality description length is 500 characters!' })
-    .optional(),
-  gender: z
-    .enum(['male', 'female', 'unknown'], {
-      message: 'Gender must be either male, female, or unknown!',
-    })
-    .default('unknown'),
-});
+export const userPersonalitySchema = z
+  .object({
+    personality: z
+      .string({ error: 'Invalid input type was provided for personality!' })
+      .trim()
+      .max(500, { message: 'Maximum allowed personality description length is 500 characters!' })
+      .optional(),
+    gender: z
+      .enum(['male', 'female', 'unknown'], {
+        message: 'Gender must be either male, female, or unknown!',
+      })
+      .default('unknown'),
+    mbti: z
+      .enum(
+        [
+          'ISTJ',
+          'ISFJ',
+          'INFJ',
+          'INTJ',
+          'ISTP',
+          'ISFP',
+          'INFP',
+          'INTP',
+          'ESTP',
+          'ESFP',
+          'ENFP',
+          'ENTP',
+          'ESTJ',
+          'ESFJ',
+          'ENFJ',
+          'ENTJ',
+        ],
+        {
+          message: 'MBTI must be a valid MBTI type!',
+        }
+      )
+      .optional(),
+    enneagram: z
+      .enum(['1', '2', '3', '4', '5', '6', '7', '8', '9'], {
+        message: 'Enneagram must be a valid enneagram type!',
+      })
+      .optional(),
+    attachmentStyle: z
+      .enum(['secure', 'anxious', 'avoidant', 'disorganised'], {
+        message: 'Attachment style must be either secure, anxious, avoidant, or disorganised!',
+      })
+      .optional(),
+  })
+  .strip();

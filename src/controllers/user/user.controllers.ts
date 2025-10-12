@@ -434,7 +434,12 @@ export const setPersonality = asyncHandler(async function (
   next: NextFunction
 ) {
   if (!req.body) {
-    return next(new ApiError(400, 'Empty Request Body: Please provide gender and personality!'));
+    return next(
+      new ApiError(
+        400,
+        'Empty Request Body: Please provide gender, personality, mbti, enneagram, and attachmentStyle!'
+      )
+    );
   }
 
   const verifiedUser = req.user;
@@ -449,10 +454,10 @@ export const setPersonality = asyncHandler(async function (
     return next(new ApiError(400, error.issues[0].message));
   }
 
-  const { gender, personality } = data;
+  const personalityData = data;
 
-  if (personality && personality.length >= 3) {
-    const isPersonalitySafe = await contentModerator(personality);
+  if (personalityData.personality && personalityData.personality.length >= 3) {
+    const isPersonalitySafe = await contentModerator(personalityData.personality);
 
     if (!isPersonalitySafe) {
       return next(
@@ -466,14 +471,14 @@ export const setPersonality = asyncHandler(async function (
 
   const updated = await User.findByIdAndUpdate(
     verifiedUser._id,
-    { $set: { personality: personality || '', gender } },
+    { $set: personalityData },
     { new: true }
   );
 
   if (
     !updated ||
-    (updated.personality && updated.personality !== personality) ||
-    updated.gender !== gender
+    (updated.personality && updated.personality !== personalityData.personality) ||
+    updated.gender !== personalityData.gender
   ) {
     return next(new ApiError(500, 'Personality update failed because of internal server error!'));
   }

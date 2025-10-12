@@ -4,6 +4,7 @@ import asyncHandler from '../../utils/asyncHandler';
 import {
   AuthRequest,
   CharacterData,
+  CharacterEditData,
   ChatData,
   ImageDocument,
   MemoryDocument,
@@ -569,7 +570,166 @@ export const editCharacter = asyncHandler(async function (
     return next(new ApiError(400, error.issues[0].message));
   }
 
-  const {} = data;
+  const editData: CharacterEditData = data;
+
+  console.log(editData);
+
+  const character = await Character.findById(editData.characterId).select('+avatarId +musicId');
+
+  if (!character) {
+    return next(new ApiError(404, 'Character does not exist!'));
+  }
+
+  if (verifiedUser.role === 'user' && !verifiedUser._id.equals(character.creator)) {
+    return next(new ApiError(400, 'You are not allowed to edit characters not owned by you!'));
+  }
+
+  const uploadedFiles = req.files;
+
+  let characterImage: ImageDocument | null = null;
+  if (editData.imageId) {
+    characterImage = await Image.findById(editData.imageId);
+
+    if (!characterImage) {
+      return next(new ApiError(404, 'Image does not exist! Please choose another one.'));
+    }
+  }
+
+  let characterImagePath: string | null = null;
+  let avatarImagePath: string | null = null;
+  let musicImagePath: string | null = null;
+
+  if (uploadedFiles) {
+    if (
+      !editData.imageId &&
+      uploadedFiles.characterImage &&
+      uploadedFiles.characterImage.length !== 0
+    ) {
+      characterImagePath = uploadedFiles.characterImage[0].path;
+    }
+
+    if (uploadedFiles.characterAvatar && uploadedFiles.characterAvatar[0].path) {
+      avatarImagePath = uploadedFiles.characterAvatar[0].path;
+    }
+
+    if (uploadedFiles.music && uploadedFiles.music[0].path) {
+      musicImagePath = uploadedFiles.music[0].path;
+    }
+  }
+
+  let uploadedImageDocument: ImageDocument | null = null;
+  let avatarUploadResult: UploadApiResponse | null = null;
+  let musicUploadResult: UploadApiResponse | null = null;
+
+  if (characterImagePath) {
+    if (characterImage?.usedPrompt === 'Direct Upload' && characterImage?.imageId) {
+      const imageDeleteResult = await deleteFromCloudinary(characterImage.imageId, 'image');
+
+      if (!imageDeleteResult || !['ok', 'not found'].includes(imageDeleteResult.result)) {
+        return next(
+          new ApiError(500, 'Failed to edit character image due to internal server error!')
+        );
+      }
+    }
+
+    const imageUploadResult = await uploadToCloudinary(characterImagePath, 'images');
+
+    if (!imageUploadResult) {
+      return next(new ApiError(500, 'Failed to upload character image!'));
+    }
+
+    uploadedImageDocument = await Image.create({
+      image: imageUploadResult.secure_url,
+      imageId: imageUploadResult.public_id,
+      usedPrompt: 'Direct Upload',
+    });
+
+    if (!uploadedImageDocument) {
+      return next(new ApiError(500, 'Failed to upload character image!'));
+    }
+  }
+
+  if (avatarImagePath) {
+    if (character.avatarId) {
+      const avatarDeleteResult = await deleteFromCloudinary(character.avatarId, 'image');
+
+      if (!avatarDeleteResult || !['ok', 'not found'].includes(avatarDeleteResult.result)) {
+        return next(
+          new ApiError(500, 'Failed to edit character image due to internal server error!')
+        );
+      }
+    }
+
+    avatarUploadResult = await uploadToCloudinary(avatarImagePath, 'images');
+
+    if (!avatarUploadResult) {
+      return next(new ApiError(500, 'Failed to upload avatar image!'));
+    }
+  }
+
+  if (musicImagePath) {
+    if (character.musicId) {
+      const musicDeleteResult = await deleteFromCloudinary(character.musicId, 'video');
+
+      if (!musicDeleteResult || !['ok', 'not found'].includes(musicDeleteResult.result)) {
+        return next(
+          new ApiError(500, 'Failed to edit character image due to internal server error!')
+        );
+      }
+    }
+
+    musicUploadResult = await uploadToCloudinary(musicImagePath, 'musics');
+
+    if (!musicUploadResult) {
+      return next(new ApiError(500, 'Failed to upload the music!'));
+    }
+  }
+
+  if (editData.imageId || uploadedImageDocument) {
+    editData.characterImage = editData.imageId || uploadedImageDocument?._id.toString();
+  }
+
+  if (avatarUploadResult) {
+    editData.characterAvatar = avatarUploadResult.secure_url;
+    editData.avatarId = avatarUploadResult.public_id;
+  }
+
+  if (musicUploadResult) {
+    editData.music = musicUploadResult.secure_url;
+    editData.musicId = musicUploadResult.public_id;
+  }
+
+  delete editData.imageId;
+  delete editData.characterId;
+
+  const result = await runInTransaction(async session => {
+    const updatedCharacter = await Character.findByIdAndUpdate(
+      character._id,
+      { $set: editData },
+      {
+        new: true,
+        session,
+      }
+    );
+
+    if (!updatedCharacter) {
+      throw new Error('Failed to update character document!');
+    }
+
+    if (uploadedImageDocument) {
+      const deletedDoc = await Image.findByIdAndDelete(character.characterImage, { session });
+
+      if (!deletedDoc) {
+        throw new Error('Failed to delete image document!');
+      }
+    }
+  });
+
+  if (result === 'error') {
+    return next(new ApiError(500, 'Failed to save changes!'));
+  }
+
+  res.status(200).json(new ApiResponse(null, 'Changes saved successfully.'));
 });
 
 // *************************************************************
