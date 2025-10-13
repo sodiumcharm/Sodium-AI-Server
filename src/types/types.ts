@@ -96,6 +96,62 @@ export type MbtiType =
   | 'ENFJ'
   | 'ENTJ';
 
+export type MbtiFunction = 'Fe' | 'Fi' | 'Te' | 'Ti' | 'Ne' | 'Ni' | 'Se' | 'Si';
+
+export type MainMbtiFunctions =
+  | 'Si-Te-Fi-Ne'
+  | 'Si-Fe-Ti-Ne'
+  | 'Ni-Fe-Ti-Se'
+  | 'Ni-Te-Fi-Se'
+  | 'Ti-Se-Ni-Fe'
+  | 'Fi-Se-Ni-Te'
+  | 'Fi-Ne-Si-Te'
+  | 'Ti-Ne-Si-Fe'
+  | 'Se-Ti-Fe-Ni'
+  | 'Se-Fi-Te-Ni'
+  | 'Ne-Fi-Te-Si'
+  | 'Ne-Ti-Fe-Si'
+  | 'Te-Si-Ne-Fi'
+  | 'Fe-Si-Ne-Ti'
+  | 'Fe-Ni-Se-Ti'
+  | 'Te-Ni-Se-Fi';
+
+export type MbtiMap = {
+  'Si-Te-Fi-Ne': 'ISTJ';
+  'Si-Fe-Ti-Ne': 'ISFJ';
+  'Ni-Fe-Ti-Se': 'INFJ';
+  'Ni-Te-Fi-Se': 'INTJ';
+  'Ti-Se-Ni-Fe': 'ISTP';
+  'Fi-Se-Ni-Te': 'ISFP';
+  'Fi-Ne-Si-Te': 'INFP';
+  'Ti-Ne-Si-Fe': 'INTP';
+  'Se-Ti-Fe-Ni': 'ESTP';
+  'Se-Fi-Te-Ni': 'ESFP';
+  'Ne-Fi-Te-Si': 'ENFP';
+  'Ne-Ti-Fe-Si': 'ENTP';
+  'Te-Si-Ne-Fi': 'ESTJ';
+  'Fe-Si-Ne-Ti': 'ESFJ';
+  'Fe-Ni-Se-Ti': 'ENFJ';
+  'Te-Ni-Se-Fi': 'ENTJ';
+};
+
+export type MbtiScore = {
+  [key in MbtiFunction]: number;
+};
+
+export type MbtiAssessmentStatement = {
+  id: number;
+  text: string;
+  targetFunction: MbtiFunction;
+};
+
+export type MbtiTestResult = {
+  success: boolean;
+  type?: MbtiType;
+  score?: MbtiScore;
+  details?: string;
+};
+
 export type Zodiac =
   | 'aries'
   | 'taurus'

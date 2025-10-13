@@ -25,7 +25,11 @@ import { runInTransaction } from '../../services/mongoose';
 // GET USER's OWN DETAILS
 // *************************************************************
 
-export const getUserDetails = asyncHandler(async function (req, res, next) {
+export const getUserDetails = asyncHandler(async function (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) {
   const verifiedUser = req.user;
 
   if (!verifiedUser) {
@@ -47,7 +51,11 @@ export const getUserDetails = asyncHandler(async function (req, res, next) {
 // GET OTHER USER DETAIL
 // *************************************************************
 
-export const getOtherUser = asyncHandler(async function (req, res, next) {
+export const getOtherUser = asyncHandler(async function (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
   const userId = req.params.id;
 
   const user = await User.findById(userId).select(

@@ -40,3 +40,14 @@ export const otpVerificationLimiter = rateLimit({
     error: 'Too many OTP verification requests! Please try again later.',
   },
 });
+
+export const assessmentLimiter = rateLimit({
+  windowMs: 24 * 60 * 60 * 1000,
+  max: 2,
+  keyGenerator: req => req.user?.email || ipKeyGenerator(req.ip as string),
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  message: {
+    error: 'You have exceeded the daily assessment limit! Try again tomorrow.',
+  },
+});

@@ -1,4 +1,6 @@
-export const mbtiQuestions = [
+import { MbtiAssessmentStatement } from '../types/types';
+
+export const mbtiQuestions: readonly MbtiAssessmentStatement[] = [
   {
     id: 1,
     text: `I can usually sense when someone is uncomfortable or upset, even if they don't say it directly.`,
@@ -301,7 +303,102 @@ export const mbtiQuestions = [
   },
   {
     id: 61,
-    text: `I easily adapt to changes or unexpected opportunities.`,
+    text: `I often rely on past experiences to guide my current decisions.`,
     targetFunction: 'Si',
+  },
+  {
+    id: 62,
+    text: `I have a strong memory for details and facts that others might overlook.`,
+    targetFunction: 'Si',
+  },
+  {
+    id: 63,
+    text: `I tend to compare new situations to things I've experienced before.`,
+    targetFunction: 'Si',
+  },
+  {
+    id: 64,
+    text: `I value consistency and reliability over spontaneity and change.`,
+    targetFunction: 'Si',
+  },
+  {
+    id: 65,
+    text: `I prefer to follow established methods that have proven successful.`,
+    targetFunction: 'Si',
+  },
+  {
+    id: 66,
+    text: `I tend to stick to plans once they've been made.`,
+    targetFunction: 'Si',
+  },
+  {
+    id: 67,
+    text: `I often act as the “stabilizer” when people around me are uncertain or impulsive.`,
+    targetFunction: 'Si',
+  },
+  {
+    id: 68,
+    text: `I prefer sticking with what I know works rather than experimenting with new methods.`,
+    targetFunction: 'Si',
+  },
+  {
+    id: 69,
+    text: `I take time to review instructions or guidelines carefully before acting.`,
+    targetFunction: 'Si',
+  },
+  {
+    id: 70,
+    text: `I find comfort in routines and familiar environments.`,
+    targetFunction: 'Si',
+  },
+  {
+    id: 71,
+    text: `I quickly notice visual or sensory details in my environment.`,
+    targetFunction: 'Se',
+  },
+  {
+    id: 72,
+    text: `I tend to react fast to what's going on, even without much planning.`,
+    targetFunction: 'Se',
+  },
+  {
+    id: 73,
+    text: `I rely on real-time information more than theories or predictions.`,
+    targetFunction: 'Se',
+  },
+  {
+    id: 74,
+    text: `I enjoy being fully present and immersed in my surroundings.`,
+    targetFunction: 'Se',
+  },
+  {
+    id: 75,
+    text: `I am comfortable adapting on the spot when plans change.`,
+    targetFunction: 'Se',
+  },
+  {
+    id: 76,
+    text: `I find spontaneity and unpredictability exciting rather than stressful.`,
+    targetFunction: 'Se',
+  },
+  {
+    id: 77,
+    text: `I often take action first and analyze later.`,
+    targetFunction: 'Se',
+  },
+  {
+    id: 78,
+    text: `I feel most alive when I am actively doing something rather than just thinking about it.`,
+    targetFunction: 'Se',
+  },
+  {
+    id: 79,
+    text: `I often notice small physical details — like lighting, colors, or sounds — that others overlook.`,
+    targetFunction: 'Se',
+  },
+  {
+    id: 80,
+    text: `I enjoy activities that involve movement, excitement, or physical experience.`,
+    targetFunction: 'Se',
   },
 ];
