@@ -6,6 +6,7 @@ const otpSchema = new mongoose.Schema<OtpDocument>({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true,
+    index: true,
   },
   otp: {
     type: String,
@@ -15,6 +16,7 @@ const otpSchema = new mongoose.Schema<OtpDocument>({
     type: String,
     required: true,
     enum: ['2FA', 'verify-email', 'forgot-password'],
+    index: true,
   },
   attempts: {
     type: Number,

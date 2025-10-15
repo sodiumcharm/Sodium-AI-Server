@@ -7,8 +7,43 @@ import User from '../../models/user.model';
 import PersonalityResult from '../../models/personalityResult.model';
 import { mbtiScoreSchema } from '../../validators/assessment.validators';
 import { determineMBTI } from '../../personalityAssessment/assessments';
+import mbtiQuestions from '../../personalityAssessment/mbtiQuestions';
 
-export const getMBTIResult = asyncHandler(async function (
+export const getMbtiAssessment = asyncHandler(async function (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) {
+  const verifiedUser = req.user;
+
+  if (!verifiedUser) {
+    return next(new ApiError(401, 'Unauthorized request denied! Please login first.'));
+  }
+
+  const page = parseInt(req.params.page);
+
+  if (page < 1 || page > 8) {
+    return next(new ApiError(400, 'Invalid page value!'));
+  }
+
+  const limit = 10;
+
+  const startIndex = (page - 1) * limit;
+  const endIndex = startIndex + limit;
+
+  const paginated = mbtiQuestions.slice(startIndex, endIndex);
+
+  res
+    .status(200)
+    .json(
+      new ApiResponse(
+        { mbtiQuestions: paginated },
+        'You have successfully received assessment questions.'
+      )
+    );
+});
+
+export const createMbtiResult = asyncHandler(async function (
   req: AuthRequest,
   res: Response,
   next: NextFunction

@@ -19,6 +19,7 @@ export type EnvObject = {
   CLOUDINARY_API_SECRET: string;
   GEMINI_API_KEY: string;
   HUGGING_FACE_TOKEN: string;
+  HUGGING_FACE_BACKUP_TOKEN: string;
   GOOGLE_APP_PASSWORD: string;
   ACCESS_TOKEN_SECRET: string;
   ACCESS_TOKEN_EXPIRY: string;
@@ -32,6 +33,8 @@ export type EnvObject = {
 export type CloudinaryDestroyResult = {
   result: 'ok' | 'not found' | 'error';
 };
+
+export type ImageStyle = 'realistic' | 'anime' | 'fantasy' | 'horror';
 
 export type NotificationType = 'subscribe' | 'communicate' | 'comment' | 'follow' | 'new';
 
@@ -143,6 +146,12 @@ export type MbtiAssessmentStatement = {
   id: number;
   text: string;
   targetFunction: MbtiFunction;
+};
+
+export type SelfEsteemStatement = {
+  id: number;
+  text: string;
+  baseScore: 1 | -1;
 };
 
 export type MbtiTestResult = {

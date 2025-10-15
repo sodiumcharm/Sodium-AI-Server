@@ -1,6 +1,7 @@
 import { MbtiAssessmentStatement } from '../types/types';
+import shuffle from '../utils/shuffle';
 
-export const mbtiQuestions: readonly MbtiAssessmentStatement[] = [
+const mbtiQuestions: readonly MbtiAssessmentStatement[] = shuffle([
   {
     id: 1,
     text: `I can usually sense when someone is uncomfortable or upset, even if they don't say it directly.`,
@@ -401,4 +402,6 @@ export const mbtiQuestions: readonly MbtiAssessmentStatement[] = [
     text: `I enjoy activities that involve movement, excitement, or physical experience.`,
     targetFunction: 'Se',
   },
-];
+]);
+
+export default mbtiQuestions;

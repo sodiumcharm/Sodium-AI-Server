@@ -24,6 +24,7 @@ const userSchema = new mongoose.Schema<UserDocument>(
       minlength: 3,
       maxlength: 20,
       validate: [isValidUsername, 'Please provide a valid username'],
+      index: true,
     },
     lastUsernameChanged: {
       type: Date,
@@ -45,6 +46,7 @@ const userSchema = new mongoose.Schema<UserDocument>(
       unique: true,
       lowercase: true,
       validate: [validator.isEmail, 'Please provide a valid email'],
+      index: true,
     },
     isEmailVerified: {
       type: Boolean,

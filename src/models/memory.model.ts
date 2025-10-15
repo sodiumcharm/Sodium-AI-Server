@@ -7,11 +7,13 @@ const memorySchema = new mongoose.Schema<MemoryDocument>(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       required: true,
+      index: true,
     },
     character: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Character',
       required: true,
+      index: true,
     },
     messages: [
       {

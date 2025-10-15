@@ -12,6 +12,7 @@ const personalityTestResultSchema = new mongoose.Schema<PersonalityResultDocumen
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
+      index: true,
     },
     mbtiAnalysis: {
       Fe: {

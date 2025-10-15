@@ -12,6 +12,7 @@ const _config: EnvObject = {
   CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET as string,
   GEMINI_API_KEY: process.env.GEMINI_API_KEY as string,
   HUGGING_FACE_TOKEN: process.env.HUGGING_FACE_TOKEN as string,
+  HUGGING_FACE_BACKUP_TOKEN: process.env.HUGGING_FACE_BACKUP_TOKEN as string,
   GOOGLE_APP_PASSWORD: process.env.GOOGLE_APP_PASSWORD as string,
   ACCESS_TOKEN_SECRET: process.env.ACCESS_TOKEN_SECRET as string,
   ACCESS_TOKEN_EXPIRY: process.env.ACCESS_TOKEN_EXPIRY as string,

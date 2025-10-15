@@ -291,3 +291,13 @@ export const editCharacterSchema = z
       .optional(),
   })
   .strip();
+
+export const removeMediaSchema = z.object({
+  characterId: z
+    .string({ error: 'Empty or invalid input type was provided for character!' })
+    .trim()
+    .regex(/^[a-f\d]{24}$/i, { message: 'Invalid character id provided!' }),
+  target: z.enum(['avatar', 'music'], {
+    message: 'Target must be either avatar or music!',
+  }),
+});

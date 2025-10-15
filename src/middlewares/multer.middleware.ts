@@ -1,7 +1,7 @@
 import multer, { StorageEngine } from 'multer';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import { MAX_CHARACTER_DATA_SIZE, MAX_USER_IMAGE_SIZE } from '../constants';
+import { MAX_CHARACTER_DATA_SIZE, MAX_USER_IMAGE_SIZE, MAX_REF_IMAGE_SIZE } from '../constants';
 import { characterDataFilter, imageFilter } from '../config/multerFilters';
 
 const diskStorage: StorageEngine = multer.diskStorage({
@@ -27,4 +27,10 @@ export const uploadCharacterData = multer({
   storage: diskStorage,
   limits: { fileSize: MAX_CHARACTER_DATA_SIZE },
   fileFilter: characterDataFilter,
+});
+
+export const uploadReferenceImage = multer({
+  storage: diskStorage,
+  limits: { fileSize: MAX_REF_IMAGE_SIZE },
+  fileFilter: imageFilter,
 });

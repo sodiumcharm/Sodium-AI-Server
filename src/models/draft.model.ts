@@ -23,6 +23,7 @@ const draftSchema = new mongoose.Schema<DraftDocument>(
     creator: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
+      index: true,
     },
     relationship: {
       type: String,
@@ -87,10 +88,6 @@ const draftSchema = new mongoose.Schema<DraftDocument>(
     llmModel: {
       type: String,
       trim: true,
-    },
-    dialogueStyle: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'DialogueStyle',
     },
     tags: {
       type: String,

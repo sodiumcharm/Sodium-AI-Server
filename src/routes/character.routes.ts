@@ -7,6 +7,7 @@ import {
   clearCommunicationMemory,
   communicateCharacter,
   createCharacter,
+  deleteMedia,
   dropCharacter,
   editCharacter,
   followCharacter,
@@ -45,6 +46,8 @@ router.route('/edit').patch(
   imageCheckerAI,
   editCharacter
 );
+
+router.route('/remove').delete(verifyAuth, deleteMedia);
 
 router.route('/drop/:characterId').delete(verifyAuth, dropCharacter);
 

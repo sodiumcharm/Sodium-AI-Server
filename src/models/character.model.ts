@@ -26,6 +26,7 @@ const characterSchema = new mongoose.Schema<CharacterDocument>(
     creator: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
+      index: true,
     },
     followerCount: {
       type: Number,

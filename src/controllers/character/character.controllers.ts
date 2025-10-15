@@ -21,6 +21,7 @@ import {
   characterCommunicationSchema,
   createCharacterSchema,
   editCharacterSchema,
+  removeMediaSchema,
 } from '../../validators/character.validators';
 import Image from '../../models/image.model';
 import Memory from '../../models/memory.model';
@@ -558,6 +559,15 @@ export const editCharacter = asyncHandler(async function (
   res: Response,
   next: NextFunction
 ) {
+  if (!req.body) {
+    return next(
+      new ApiError(
+        400,
+        'Empty Request Body: Please provide characterId and other edited fields in the request body!'
+      )
+    );
+  }
+
   const verifiedUser = req.user;
 
   if (!verifiedUser) {
@@ -730,6 +740,96 @@ export const editCharacter = asyncHandler(async function (
   }
 
   res.status(200).json(new ApiResponse(null, 'Changes saved successfully.'));
+});
+
+// *************************************************************
+// DELETE CHARACTER
+// *************************************************************
+
+export const deleteMedia = asyncHandler(async function (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) {
+  const verifiedUser = req.user;
+
+  if (!verifiedUser) {
+    return next(new ApiError(401, 'Unauthorized request denied!'));
+  }
+
+  const { data, error } = removeMediaSchema.safeParse(req.query);
+
+  if (error) {
+    return next(new ApiError(400, error.issues[0].message));
+  }
+
+  const { characterId, target } = data;
+
+  const character = await Character.findById(characterId).select('+avatarId +musicId');
+
+  if (!character) {
+    return next(new ApiError(404, 'Character does not exist!'));
+  }
+
+  if (verifiedUser.role === 'user' && !verifiedUser._id.equals(character.creator)) {
+    return next(
+      new ApiError(400, 'You are not allowed to delete media of characters not owned by you!')
+    );
+  }
+
+  if (target === 'avatar') {
+    if (!character.avatarId) {
+      return next(new ApiError(400, 'You have no avatar image to remove!'));
+    }
+
+    const deleteResult = await deleteFromCloudinary(character.avatarId, 'image');
+
+    if (!deleteResult || !['ok', 'not found'].includes(deleteResult.result)) {
+      return next(new ApiError(500, 'Failed to delete avatar image!'));
+    }
+
+    const updatedCharacter = await Character.findByIdAndUpdate(
+      character._id,
+      {
+        $set: { characterAvatar: '', avatarId: '' },
+      },
+      { new: true }
+    );
+
+    if (!updatedCharacter || updatedCharacter.characterAvatar || updatedCharacter.avatarId) {
+      return next(
+        new ApiError(500, 'Failed to remove character avatar due to internal server error!')
+      );
+    }
+  }
+
+  if (target === 'music') {
+    if (!character.musicId) {
+      return next(new ApiError(400, 'You have no music to remove!'));
+    }
+
+    const deleteResult = await deleteFromCloudinary(character.musicId, 'video');
+
+    if (!deleteResult || !['ok', 'not found'].includes(deleteResult.result)) {
+      return next(new ApiError(500, 'Failed to delete the character music!'));
+    }
+
+    const updatedCharacter = await Character.findByIdAndUpdate(
+      character._id,
+      {
+        $set: { music: '', musicId: '' },
+      },
+      { new: true }
+    );
+
+    if (!updatedCharacter || updatedCharacter.music || updatedCharacter.musicId) {
+      return next(
+        new ApiError(500, 'Failed to remove character music due to internal server error!')
+      );
+    }
+  }
+
+  res.status(200).json(new ApiResponse(null, `You have successfully removed ${target}.`));
 });
 
 // *************************************************************

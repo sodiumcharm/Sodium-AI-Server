@@ -6,6 +6,7 @@ const secretCodeSchema = new mongoose.Schema<SecretCodeDocument>({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true,
+    index: true,
   },
   code: {
     type: String,

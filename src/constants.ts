@@ -7,6 +7,7 @@ export const TEMPFILE_MAX_AGE: number = 1000 * 60 * 10;
 export const TEMP_CLEANUP_INTERVAL: number = 1000 * 60 * 15;
 export const MAX_CHARACTER_DATA_SIZE: number = 1024 * 1024 * 15;
 export const MAX_USER_IMAGE_SIZE: number = 1024 * 1024 * 2.5;
+export const MAX_REF_IMAGE_SIZE: number = 1024 * 1024 * 10;
 export const ACCESSTOKEN_COOKIE_AGE: number = 1000 * 60 * 60 * 24 * 7;
 export const REFRESHTOKEN_COOKIE_AGE: number = 1000 * 60 * 60 * 24 * 30;
 export const SERVICE_EMAIL: string = 'sodiumai.service@gmail.com';
@@ -28,4 +29,10 @@ export const MODEL_MEMORY: ModelMemory = {
   'gpt-4o': 20,
   'gpt-4o-mini': 12,
   'gpt-3.5-turbo': 20,
+};
+export const IMAGE_MODELS = {
+  realistic: 'stabilityai/stable-diffusion-xl-base-1.0',
+  anime: 'stabilityai/stable-diffusion-xl-base-1.0',
+  fantasy: 'stabilityai/stable-diffusion-xl-base-1.0',
+  horror: 'Jonjew/DarkFantasyHorror',
 };

@@ -328,7 +328,7 @@ export const changeProfileImage = asyncHandler(async function (
 
     const deleteResult = await deleteFromCloudinary(verifiedUser.profileImageId, 'image');
 
-    if (!deleteResult || deleteResult.result !== 'ok') {
+    if (!deleteResult || !['ok', 'not found'].includes(deleteResult.result)) {
       return next(new ApiError(500, 'Failed to remove image because of internal server error!'));
     }
 
@@ -354,7 +354,7 @@ export const changeProfileImage = asyncHandler(async function (
   if (verifiedUser.profileImageId) {
     const deleteResult = await deleteFromCloudinary(verifiedUser.profileImageId, 'image');
 
-    if (!deleteResult || deleteResult.result !== 'ok') {
+    if (!deleteResult || !['ok', 'not found'].includes(deleteResult.result)) {
       return next(new ApiError(500, 'Image upload failed because of internal server error!.'));
     }
   }

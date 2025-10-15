@@ -7,6 +7,7 @@ const suspendSchema = new mongoose.Schema<SuspensionDocument>(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       required: true,
+      index: true,
     },
     reason: {
       type: String,

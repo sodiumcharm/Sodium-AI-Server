@@ -2,7 +2,7 @@ import { rateLimit, ipKeyGenerator } from 'express-rate-limit';
 
 export const globalLimiter = rateLimit({
   windowMs: 1 * 60 * 1000,
-  max: 200,
+  max: 100,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
   message: {
@@ -49,5 +49,16 @@ export const assessmentLimiter = rateLimit({
   legacyHeaders: false,
   message: {
     error: 'You have exceeded the daily assessment limit! Try again tomorrow.',
+  },
+});
+
+export const imageGenerationLimiter = rateLimit({
+  windowMs: 24 * 60 * 60 * 1000,
+  max: 50,
+  keyGenerator: req => req.user?.email || ipKeyGenerator(req.ip as string),
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  message: {
+    error: 'You have exceeded the daily image generation limit! Try again tomorrow.',
   },
 });
