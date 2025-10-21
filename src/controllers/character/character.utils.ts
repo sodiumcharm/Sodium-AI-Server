@@ -1,4 +1,3 @@
-import { Types } from 'mongoose';
 import { CharacterDocument, ChatData, UserDocument } from '../../types/types';
 import genAI from '../../llm/gemini/gemini';
 import openAI from '../../llm/openAI/openAI';
@@ -7,6 +6,9 @@ import personalityPrompt from '../../prompts/personality.prompts';
 import { rolePlayPrompt, professionalPrompt } from '../../prompts/response.prompts';
 import Memory from '../../models/memory.model';
 import replyAdvicePrompt from '../../prompts/replyAdvice.prompts';
+import { config } from '../../config/config';
+import logger from '../../utils/logger';
+import { contextMemoryPrompt } from '../../prompts/generator.prompts';
 
 export const communicate = async function (
   chatData: ChatData
@@ -24,6 +26,7 @@ export const communicate = async function (
     attachmentStyle,
     zodiac,
     chatHistory,
+    memory,
   } = chatData;
 
   try {
@@ -79,6 +82,10 @@ export const communicate = async function (
           },
           {
             role: 'system',
+            content: `Your Context Memory: ${memory || 'No context memory yet'}`,
+          },
+          {
+            role: 'system',
             content: `Keep your responses usually between 1-4 sentences (maximum 100 words). So responses should be short, expressive and concise unless asked to elaborate.`,
           },
           {
@@ -131,5 +138,47 @@ export const getReplyAdvices = async function (
     return responseArr;
   } catch (error) {
     return 'error';
+  }
+};
+
+export const updateContextMemory = async function (
+  user: UserDocument,
+  character: CharacterDocument,
+  text: string
+): Promise<boolean> {
+  try {
+    const memory = await Memory.findOne({ user: user._id, character: character._id });
+
+    if (!memory) return false;
+
+    let result: string | null = null;
+
+    if (user.isPaid) {
+      const response = await openAI.chat.completions.create({
+        model: 'gpt-4o',
+        messages: [{ role: 'system', content: contextMemoryPrompt(memory.contextMemory, text) }],
+      });
+
+      result = response.choices[0].message.content;
+    } else {
+      const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+
+      const response = await model.generateContent(contextMemoryPrompt(memory.contextMemory, text));
+
+      result = response.response.text();
+    }
+
+    if (!result) return false;
+
+    await Memory.findByIdAndUpdate(memory._id, {
+      $set: { contextMemory: result },
+    });
+
+    return true;
+  } catch (error) {
+    if (config.NODE_ENV === 'development') {
+      logger.error(error, 'Error while updating context!');
+    }
+    return false;
   }
 };

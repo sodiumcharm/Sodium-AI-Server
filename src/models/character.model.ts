@@ -58,6 +58,7 @@ const characterSchema = new mongoose.Schema<CharacterDocument>(
       type: Boolean,
       required: true,
       default: false,
+      index: true,
     },
     relationship: {
       type: String,
@@ -180,15 +181,18 @@ const characterSchema = new mongoose.Schema<CharacterDocument>(
         'gpt-3.5-turbo',
       ],
     },
-    tags: {
-      type: String,
-      trim: true,
-    },
+    tags: [
+      {
+        type: String,
+        trim: true,
+      },
+    ],
     visibility: {
       type: String,
       required: true,
       trim: true,
       enum: ['public', 'private'],
+      index: true,
     },
     reports: [
       {

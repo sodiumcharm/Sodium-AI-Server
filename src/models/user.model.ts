@@ -187,12 +187,6 @@ const userSchema = new mongoose.Schema<UserDocument>(
         ref: 'Character',
       },
     ],
-    savedImages: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Image',
-      },
-    ],
     notifications: [
       {
         notificationType: {

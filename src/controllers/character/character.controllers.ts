@@ -4,6 +4,7 @@ import asyncHandler from '../../utils/asyncHandler';
 import {
   AuthRequest,
   CharacterData,
+  CharacterDocument,
   CharacterEditData,
   ChatData,
   ImageDocument,
@@ -21,13 +22,149 @@ import {
   characterCommunicationSchema,
   createCharacterSchema,
   editCharacterSchema,
+  getCharactersOptionSchema,
   removeMediaSchema,
 } from '../../validators/character.validators';
 import Image from '../../models/image.model';
 import Memory from '../../models/memory.model';
-import { communicate, getReplyAdvices } from './character.utils';
+import { communicate, getReplyAdvices, updateContextMemory } from './character.utils';
 import { MODEL_MEMORY } from '../../constants';
 import { runInTransaction } from '../../services/mongoose';
+import { numericStringSchema } from '../../validators/general.validators';
+
+// *************************************************************
+// GET CHARACTERS
+// *************************************************************
+
+export const getCharacters = asyncHandler(async function (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) {
+  const verifiedUser = req.user;
+
+  const { option, page } = req.query;
+
+  const { data: incomingOption, error } = getCharactersOptionSchema.safeParse(option);
+
+  if (error) {
+    return next(new ApiError(400, error.issues[0].message));
+  }
+
+  let result: CharacterDocument[] | null = null;
+  let totalCount: number = 0;
+  const selectionFields = 'name characterImage creator';
+
+  if (incomingOption === 'random') {
+    const aggregateData = await Character.aggregate([
+      { $match: { isApproved: true, visibility: 'public' } },
+      { $sample: { size: 15 } },
+      {
+        $project: {
+          isApproved: 0,
+          followers: 0,
+          communicators: 0,
+          comments: 0,
+          relationship: 0,
+          responseStyle: 0,
+          personality: 0,
+          reports: 0,
+        },
+      },
+    ]);
+
+    if (!aggregateData) {
+      return next(new ApiError(500, 'Failed to load characters!'));
+    }
+
+    result = await Character.populate(aggregateData, [
+      { path: 'creator', select: 'fullname profileImage' },
+      { path: 'characterImage', select: 'image' },
+    ]);
+  }
+
+  if (incomingOption !== 'random') {
+    const { data: currentPage, error: pageError } = numericStringSchema.safeParse(page);
+
+    if (pageError) {
+      return next(new ApiError(400, pageError.issues[0].message));
+    }
+
+    const limit = 20;
+    const skip = (currentPage - 1) * limit;
+
+    const generalQuery = { isApproved: true, visibility: 'public' };
+    const tagQuery = { ...generalQuery, tags: incomingOption };
+
+    if (incomingOption === 'all') {
+      [result, totalCount] = await Promise.all([
+        Character.find(generalQuery).skip(skip).limit(limit).select(selectionFields),
+        Character.countDocuments(generalQuery),
+      ]);
+    } else if (incomingOption === 'recent') {
+      [result, totalCount] = await Promise.all([
+        Character.find(generalQuery)
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(limit)
+          .select(selectionFields),
+        Character.countDocuments(generalQuery),
+      ]);
+    } else if (incomingOption === 'most-followed') {
+      [result, totalCount] = await Promise.all([
+        Character.find(generalQuery)
+          .sort({ followerCount: -1 })
+          .skip(skip)
+          .limit(limit)
+          .select(selectionFields),
+        Character.countDocuments(generalQuery),
+      ]);
+    } else {
+      [result, totalCount] = await Promise.all([
+        Character.find(tagQuery).skip(skip).limit(limit).select(selectionFields),
+        Character.countDocuments(tagQuery),
+      ]);
+    }
+
+    if (!result) {
+      return next(new ApiError(500, 'Failed to load characters!'));
+    }
+
+    result = await Character.populate(result, [
+      { path: 'characterImage', select: 'image' },
+      { path: 'creator', select: 'fullname profileImage' },
+    ]);
+
+    if (!result) {
+      return next(new ApiError(500, 'Failed to load characters!'));
+    }
+
+    return res.status(200).json(
+      new ApiResponse({
+        result,
+        currentPage,
+        totalCount,
+        hasMore: skip + result.length < totalCount,
+      })
+    );
+  }
+
+  if (!result) {
+    return next(new ApiError(500, 'Failed to load characters!'));
+  }
+
+  res.status(200).json(new ApiResponse({ result }));
+});
+
+// *************************************************************
+// GET CHARACTER INFO
+// *************************************************************
+
+export const getCharacterInfo = asyncHandler(async function (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) {});
 
 // *************************************************************
 // CREATE CHARACTER
@@ -95,9 +232,21 @@ export const createCharacter = asyncHandler(async function (
 
     characterImagePath = uploadedFiles.characterImage[0].path;
   } else {
-    const image = await Image.findById(characterData.imageId);
+    const image = await Image.findById(characterData.imageId).populate<{
+      usedByCharacter: CharacterDocument;
+    }>('usedByCharacter', 'name');
+
     if (!image) {
       return next(new ApiError(404, 'Image does not exist! Please choose another one.'));
+    }
+
+    if (image.usedByCharacter) {
+      return next(
+        new ApiError(
+          400,
+          `This image is being already used by your character ${image.usedByCharacter.name}! Please use another image.`
+        )
+      );
     }
   }
 
@@ -123,6 +272,7 @@ export const createCharacter = asyncHandler(async function (
     image = await Image.create({
       image: characterImageUploadResult.secure_url,
       imageId: characterImageUploadResult.public_id,
+      user: verifiedUser._id,
       usedPrompt: 'Direct Upload',
     });
 
@@ -159,6 +309,7 @@ export const createCharacter = asyncHandler(async function (
   characterData.music = musicUploadResult?.secure_url || '';
   characterData.musicId = musicUploadResult?.public_id || '';
   characterData.isApproved = true;
+  if (characterData.tags) characterData.tags = JSON.parse(characterData.tags);
 
   const character = await Character.create(characterData);
 
@@ -166,7 +317,7 @@ export const createCharacter = asyncHandler(async function (
     return next(new ApiError(500, 'Failed to create character!'));
   }
 
-  const [updated, _] = await Promise.all([
+  const [updatedUser, updatedImage, _] = await Promise.all([
     User.findByIdAndUpdate(
       verifiedUser._id,
       {
@@ -175,10 +326,22 @@ export const createCharacter = asyncHandler(async function (
       },
       { new: true }
     ),
+    Image.findByIdAndUpdate(
+      characterData.characterImage,
+      {
+        $set: { usedByCharacter: character._id },
+      },
+      { new: true }
+    ),
     createNotification('new', verifiedUser._id),
   ]);
 
-  if (!updated || !updated.creations.some(id => id.equals(character._id))) {
+  if (
+    !updatedUser ||
+    !updatedUser.creations.some(id => id.equals(character._id)) ||
+    !updatedImage ||
+    !updatedImage.usedByCharacter.equals(character._id)
+  ) {
     return next(new ApiError(500, 'Failed to update user creations!'));
   }
 
@@ -307,6 +470,7 @@ export const communicateCharacter = asyncHandler(async function (
 
   if (chatHistory && chatHistory.messages.length !== 0) {
     chatData.chatHistory = chatHistory.messages;
+    chatData.memory = chatHistory.contextMemory;
   } else {
     chatData.opening = character.opening;
   }
@@ -341,27 +505,30 @@ export const communicateCharacter = asyncHandler(async function (
     .status(200)
     .json(new ApiResponse({ reply: response }, 'Character communicated successfully.'));
 
-  const userResponse = {
-    sender: 'user',
-    content: text,
-    timestamp: new Date(),
-  };
-
-  const characterResponse = {
-    sender: 'you',
-    content: response,
-    timestamp: new Date(),
-  };
-
   if (verifiedUser && chatHistory) {
-    await Memory.findByIdAndUpdate(chatHistory._id, {
-      $push: {
-        messages: {
-          $each: [userResponse, characterResponse],
-          $slice: -50,
+    const userResponse = {
+      sender: 'user',
+      content: text,
+      timestamp: new Date(),
+    };
+
+    const characterResponse = {
+      sender: 'you',
+      content: response,
+      timestamp: new Date(),
+    };
+
+    await Promise.all([
+      updateContextMemory(verifiedUser, character, text),
+      Memory.findByIdAndUpdate(chatHistory._id, {
+        $push: {
+          messages: {
+            $each: [userResponse, characterResponse],
+            $slice: -50,
+          },
         },
-      },
-    });
+      }),
+    ]);
   }
 });
 
@@ -582,8 +749,6 @@ export const editCharacter = asyncHandler(async function (
 
   const editData: CharacterEditData = data;
 
-  console.log(editData);
-
   const character = await Character.findById(editData.characterId).select('+avatarId +musicId');
 
   if (!character) {
@@ -602,6 +767,15 @@ export const editCharacter = asyncHandler(async function (
 
     if (!characterImage) {
       return next(new ApiError(404, 'Image does not exist! Please choose another one.'));
+    }
+
+    if (characterImage.usedByCharacter && !characterImage.usedByCharacter.equals(character._id)) {
+      return next(
+        new ApiError(
+          400,
+          `This image is being already used by one of your character! Please use another image.`
+        )
+      );
     }
   }
 
@@ -651,6 +825,7 @@ export const editCharacter = asyncHandler(async function (
     uploadedImageDocument = await Image.create({
       image: imageUploadResult.secure_url,
       imageId: imageUploadResult.public_id,
+      user: verifiedUser._id,
       usedPrompt: 'Direct Upload',
     });
 
@@ -697,6 +872,16 @@ export const editCharacter = asyncHandler(async function (
 
   if (editData.imageId || uploadedImageDocument) {
     editData.characterImage = editData.imageId || uploadedImageDocument?._id.toString();
+
+    const updatedImageDoc = await Image.findByIdAndUpdate(
+      editData.characterImage,
+      { $set: { usedByCharacter: character._id } },
+      { new: true }
+    );
+
+    if (!updatedImageDoc || !updatedImageDoc.usedByCharacter.equals(character._id)) {
+      return next(new ApiError(500, 'Error while saving changes!'));
+    }
   }
 
   if (avatarUploadResult) {
@@ -711,6 +896,8 @@ export const editCharacter = asyncHandler(async function (
 
   delete editData.imageId;
   delete editData.characterId;
+
+  if (editData.tags) editData.tags = JSON.parse(editData.tags);
 
   const result = await runInTransaction(async session => {
     const updatedCharacter = await Character.findByIdAndUpdate(
@@ -727,10 +914,26 @@ export const editCharacter = asyncHandler(async function (
     }
 
     if (uploadedImageDocument) {
-      const deletedDoc = await Image.findByIdAndDelete(character.characterImage, { session });
+      const imageDoc = await Image.findById(character.characterImage).session(session);
 
-      if (!deletedDoc) {
-        throw new Error('Failed to delete image document!');
+      if (!imageDoc) throw new Error('Failed to load image document!');
+
+      if (imageDoc.usedPrompt === 'Direct Upload') {
+        const deletedDoc = await Image.findByIdAndDelete(character.characterImage, { session });
+
+        if (!deletedDoc) {
+          throw new Error('Failed to delete image document!');
+        }
+      } else {
+        const updatedImageDoc = await Image.findByIdAndUpdate(
+          character.characterImage,
+          { $unset: { usedByCharacter: '' } },
+          { new: true, session }
+        );
+
+        if (!updatedImageDoc || updatedImageDoc.usedByCharacter) {
+          throw new Error('Failed to update image document!');
+        }
       }
     }
   });
@@ -900,22 +1103,17 @@ export const dropCharacter = asyncHandler(async function (
       if (!deletedImageDocument) {
         throw new Error('Failed to delete documents!');
       }
+    } else {
+      const updatedImageDoc = await Image.findByIdAndUpdate(
+        characterImage._id,
+        { $unset: { usedByCharacter: '' } },
+        { new: true, session }
+      );
+
+      if (!updatedImageDoc || updatedImageDoc.usedByCharacter) {
+        throw new Error('Failed to update image document!');
+      }
     }
-
-    const erasedMemories = await Memory.deleteMany({ character: character._id }, { session });
-
-    const updatedUsers = await User.updateMany(
-      {
-        $or: [{ followingCharacters: character._id }, { communications: character._id }],
-      },
-      {
-        $pull: {
-          followingCharacters: character._id,
-          communications: character._id,
-        },
-      },
-      { session }
-    );
 
     const updatedCreator = await User.findByIdAndUpdate(
       character.creator,
@@ -933,8 +1131,6 @@ export const dropCharacter = asyncHandler(async function (
 
     if (
       !deletedCharacterDocument ||
-      !erasedMemories ||
-      !updatedUsers ||
       !updatedCreator ||
       updatedCreator.creations.some(id => id.equals(character._id))
     ) {
@@ -945,6 +1141,21 @@ export const dropCharacter = asyncHandler(async function (
   if (result === 'error') {
     return next(new ApiError(500, 'Failed to delete due to internal server error!'));
   }
+
+  await Promise.all([
+    Memory.deleteMany({ character: character._id }),
+    User.updateMany(
+      {
+        $or: [{ followingCharacters: character._id }, { communications: character._id }],
+      },
+      {
+        $pull: {
+          followingCharacters: character._id,
+          communications: character._id,
+        },
+      }
+    ),
+  ]);
 
   res.status(200).json(new ApiResponse(null, 'Character deleted successfully.'));
 });

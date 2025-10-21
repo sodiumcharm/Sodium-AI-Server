@@ -215,7 +215,6 @@ export interface UserDocument extends Document {
   drafts: Types.ObjectId[];
   followingCharacters: Types.ObjectId[];
   communications: Types.ObjectId[];
-  savedImages: Types.ObjectId[];
   createdAt: Date;
   updatedAt: Date;
   notifications: Notification[];
@@ -266,7 +265,7 @@ export interface CharacterDocument extends Document {
   musicId?: string;
   opening: string;
   llmModel: LlmModel;
-  tags?: string;
+  tags?: string[];
   visibility: 'public' | 'private';
   reports: Types.ObjectId[];
   createdAt: Date;
@@ -334,6 +333,7 @@ export interface MemoryDocument extends Document {
   user: Types.ObjectId;
   character: Types.ObjectId;
   messages: MessageDocument[];
+  contextMemory: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -358,7 +358,7 @@ export interface DraftDocument extends Document {
   musicId?: string;
   opening?: string;
   llmModel?: LlmModel;
-  tags?: string;
+  tags?: string[];
   visibility?: 'public' | 'private';
   createdAt: Date;
   updatedAt: Date;
@@ -368,6 +368,8 @@ export interface ImageDocument extends Document {
   _id: Types.ObjectId;
   image: string;
   imageId: string;
+  user: Types.ObjectId;
+  usedByCharacter: Types.ObjectId;
   usedPrompt: string;
   createdAt: Date;
   updatedAt: Date;
@@ -503,6 +505,7 @@ export type ChatData = {
   attachmentStyle?: AttachmentType;
   zodiac?: Zodiac;
   chatHistory?: MessageDocument[];
+  memory?: string;
 };
 
 export type UserModerationResult = {

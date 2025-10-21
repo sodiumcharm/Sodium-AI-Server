@@ -89,10 +89,12 @@ const draftSchema = new mongoose.Schema<DraftDocument>(
       type: String,
       trim: true,
     },
-    tags: {
-      type: String,
-      trim: true,
-    },
+    tags: [
+      {
+        type: String,
+        trim: true,
+      },
+    ],
     visibility: {
       type: String,
       trim: true,

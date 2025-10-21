@@ -25,6 +25,7 @@ const memorySchema = new mongoose.Schema<MemoryDocument>(
         content: {
           type: String,
           required: true,
+          maxLength: 1000,
         },
         timestamp: {
           type: Date,
@@ -32,6 +33,11 @@ const memorySchema = new mongoose.Schema<MemoryDocument>(
         },
       },
     ],
+    contextMemory: {
+      type: String,
+      default: '',
+      maxLength: 1000,
+    },
   },
   { timestamps: true }
 );

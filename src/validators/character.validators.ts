@@ -301,3 +301,32 @@ export const removeMediaSchema = z.object({
     message: 'Target must be either avatar or music!',
   }),
 });
+
+export const getCharactersOptionSchema = z.enum(
+  [
+    'random',
+    'all',
+    'recent',
+    'most-followed',
+    'emotional',
+    'wholesome',
+    'animal',
+    'object',
+    'romantic',
+    'adventure',
+    'action',
+    'sci-fi',
+    'historical',
+    'friendship',
+    'family',
+    'horror',
+    'mythology',
+    'gaming',
+    'educational',
+    'psychology',
+    'highschool',
+    'college',
+    'fantasy',
+  ],
+  { message: 'Please provide a valid option for finding characters' }
+);

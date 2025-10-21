@@ -1,15 +1,56 @@
 import { Response, NextFunction } from 'express';
-import { AuthRequest } from '../../types/types';
+import { AuthRequest, CharacterDocument } from '../../types/types';
 import asyncHandler from '../../utils/asyncHandler';
 import ApiError from '../../utils/apiError';
 import ApiResponse from '../../utils/apiResponse';
 import { generateImage, generateRandomContent } from './generator.utils';
 import { imageGenerationSchema } from '../../validators/generator.validators';
-import { uploadToCloudinary } from '../../services/cloudinary';
+import { deleteFromCloudinary, uploadToCloudinary } from '../../services/cloudinary';
 import Image from '../../models/image.model';
 import contentModerator from '../../moderator/contentModerator';
-import User from '../../models/user.model';
-import { runInTransaction } from '../../services/mongoose';
+import { numericStringSchema } from '../../validators/general.validators';
+
+export const getImages = asyncHandler(async function (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) {
+  const verifiedUser = req.user;
+
+  if (!verifiedUser) {
+    return next(new ApiError(401, 'Unauthorized request denied!'));
+  }
+
+  const { page } = req.params;
+
+  const { data: currentPage, error } = numericStringSchema.safeParse(page);
+
+  if (error) {
+    return next(new ApiError(400, error.issues[0].message));
+  }
+
+  const limit = 20;
+  const skip = (currentPage - 1) * limit;
+
+  const [images, totalCount] = await Promise.all([
+    Image.find({ user: verifiedUser._id }).sort({ createdAt: -1 }).skip(skip).limit(limit),
+    Image.countDocuments({ user: verifiedUser._id }),
+  ]);
+
+  if (!images || isNaN(totalCount)) {
+    return next(new ApiError(500, 'Failed to load images!'));
+  }
+
+  res.status(200).json(
+    new ApiResponse({
+      images,
+      currentPage,
+      totalPages: Math.ceil(totalCount / limit),
+      totalCount: totalCount || null,
+      hasMore: skip + images.length < totalCount,
+    })
+  );
+});
 
 export const generateTextContent = asyncHandler(async function (
   req: AuthRequest,
@@ -23,8 +64,6 @@ export const generateTextContent = asyncHandler(async function (
   }
 
   const { context } = req.params;
-
-  console.log(context);
 
   const result = await generateRandomContent(context);
 
@@ -94,40 +133,67 @@ export const createImage = asyncHandler(async function (
     return next(new ApiError(500, 'Failed to save generated image!'));
   }
 
-  const result = await runInTransaction(async session => {
-    const imageDocArr = await Image.create(
-      [
-        {
-          image: imageUploadResult.secure_url,
-          imageId: imageUploadResult.public_id,
-          usedPrompt: prompt || 'No Prompt',
-        },
-      ],
-      { session }
-    );
-
-    if (!imageDocArr || imageDocArr.length === 0) {
-      throw new Error('Image creation failed!');
-    }
-
-    const updatedUser = await User.findByIdAndUpdate(
-      verifiedUser._id,
-      {
-        $addToSet: { savedImages: imageDocArr[0]._id },
-      },
-      { new: true, session }
-    );
-
-    if (!updatedUser || !updatedUser.savedImages.some(id => id.equals(imageDocArr[0]._id))) {
-      throw new Error('Database update failed!');
-    }
-
-    return imageDocArr[0];
+  const imageDoc = await Image.create({
+    image: imageUploadResult.secure_url,
+    imageId: imageUploadResult.public_id,
+    user: verifiedUser._id,
+    usedPrompt: prompt || 'No Prompt',
   });
 
-  if (result === 'error') {
+  if (!imageDoc) {
     return next(new ApiError(500, 'Failed to save generated image!'));
   }
 
-  res.status(201).json(new ApiResponse({ generatedImage: result }, 'Image generation successful.'));
+  res
+    .status(201)
+    .json(new ApiResponse({ generatedImage: imageDoc }, 'Image generation successful.'));
+});
+
+export const deleteImage = asyncHandler(async function (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) {
+  const verifiedUser = req.user;
+
+  if (!verifiedUser) {
+    return next(new ApiError(401, 'Unauthorized request denied!'));
+  }
+
+  const { imageId } = req.params;
+
+  const image = await Image.findById(imageId)
+    .select('+imageId')
+    .populate<{ usedByCharacter: CharacterDocument }>('usedByCharacter', 'name');
+
+  if (!image) {
+    return next(new ApiError(404, 'Image does not exist!'));
+  }
+
+  if (
+    verifiedUser.role === 'user' &&
+    (image.usedPrompt === 'Direct Upload' || !image.user.equals(verifiedUser._id))
+  ) {
+    return next(new ApiError(400, 'You are not allowed to delete this image!'));
+  }
+
+  if (image.usedByCharacter) {
+    return next(
+      new ApiError(400, `This image is being used by your character ${image.usedByCharacter.name}!`)
+    );
+  }
+
+  const deleteResult = await deleteFromCloudinary(image.imageId, 'image');
+
+  if (!deleteResult || !['ok', 'not found'].includes(deleteResult.result)) {
+    return next(new ApiError(500, 'Failed to delete image due to internal server error!'));
+  }
+
+  const deletedDoc = await Image.findByIdAndDelete(image._id);
+
+  if (!deletedDoc) {
+    return next(new ApiError(500, 'Failed to delete image due to internal server error!'));
+  }
+
+  res.status(200).json(new ApiResponse(null, 'Image deleted successfully.'));
 });
