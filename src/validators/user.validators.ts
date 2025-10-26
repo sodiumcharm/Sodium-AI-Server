@@ -131,3 +131,13 @@ export const userPersonalitySchema = z
       .optional(),
   })
   .strip();
+
+export const getUsersSchema = z.object({
+  type: z.enum(['subscribers', 'subscribing'], {
+    message: 'User type can be either subscribers or subscribing users!',
+  }),
+  page: z
+    .string({ error: 'Page number is required!' })
+    .regex(/^\d+$/, { message: 'Value must be a number!' })
+    .transform(val => Number(val)),
+});

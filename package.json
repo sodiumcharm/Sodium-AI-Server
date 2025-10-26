@@ -14,7 +14,9 @@
     "prod": "tsc && node dist/index.js",
     "lint": "eslint 'src/**/*.{js,ts}'",
     "lint:fix": "eslint 'src/**/*.{js,ts}' --fix",
-    "format": "prettier --write 'src/**/*.{js,ts,json,md}'"
+    "format": "prettier --write 'src/**/*.{js,ts,json,md}'",
+    "test": "vitest --config vitest.config.ts",
+    "prepare": "husky"
   },
   "keywords": [
     "AI",
@@ -78,9 +80,12 @@
     "eslint": "^9.35.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.4",
+    "husky": "^9.1.7",
     "prettier": "^3.6.2",
+    "supertest": "^7.1.4",
     "ts-node": "^10.9.2",
     "tsx": "^4.20.5",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "vitest": "^4.0.1"
   }
 }

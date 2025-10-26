@@ -11,11 +11,11 @@ const smalls = 'abcdefghijklmnopqrstuvwxyz';
 const numbers = '0123456789';
 const allChars = [...capitals, ...smalls, ...numbers];
 
-const randomOTPGenerator = function (): string {
+export const randomOTPGenerator = function (): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
 };
 
-const randomCodeGenerator = function (allChars: string[]): string {
+export const randomCodeGenerator = function (allChars: string[]): string {
   const array = new Uint32Array(15);
   crypto.getRandomValues(array);
 

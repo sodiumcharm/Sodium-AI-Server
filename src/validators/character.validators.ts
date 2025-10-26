@@ -31,7 +31,7 @@ export const createCharacterSchema = z
       })
       .default('role-play'),
     imageId: z
-      .string({ error: 'Empty or invalid input type was provided for creator!' })
+      .string({ error: 'Empty or invalid input type was provided for image!' })
       .trim()
       .regex(/^[a-f\d]{24}$/i, { message: 'Invalid image id provided!' })
       .optional(),
@@ -183,7 +183,7 @@ export const editCharacterSchema = z
       .default('role-play')
       .optional(),
     imageId: z
-      .string({ error: 'Empty or invalid input type was provided for creator!' })
+      .string({ error: 'Empty or invalid input type was provided for image!' })
       .trim()
       .regex(/^[a-f\d]{24}$/i, { message: 'Invalid image id provided!' })
       .optional(),
@@ -308,6 +308,10 @@ export const getCharactersOptionSchema = z.enum(
     'all',
     'recent',
     'most-followed',
+    'my-creations',
+    'my-communications',
+    'my-followings',
+    'my-failbox',
     'emotional',
     'wholesome',
     'animal',
@@ -330,3 +334,14 @@ export const getCharactersOptionSchema = z.enum(
   ],
   { message: 'Please provide a valid option for finding characters' }
 );
+
+export const getUserCreationsSchema = z.object({
+  userId: z
+    .string({ error: 'Empty or invalid input type was provided for user!' })
+    .trim()
+    .regex(/^[a-f\d]{24}$/i, { message: 'Invalid user id provided!' }),
+  page: z
+    .string({ error: 'Page number is required!' })
+    .regex(/^\d+$/, { message: 'Value must be a number!' })
+    .transform(val => Number(val)),
+});

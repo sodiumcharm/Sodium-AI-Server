@@ -58,7 +58,7 @@ export const imageCheckerAI = asyncHandler(async function (
 
     next();
   } catch (error) {
-    logger.error('Image moderation error!');
+    logger.error(error, 'Image moderation error!');
     return next(new ApiError(500, 'Image moderation error! Please try again.'));
   }
 });

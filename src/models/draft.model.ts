@@ -6,7 +6,7 @@ const draftSchema = new mongoose.Schema<DraftDocument>(
     name: {
       type: String,
       trim: true,
-      minlength: 1,
+      minlength: 0,
       maxlength: 50,
     },
     gender: {
@@ -17,7 +17,7 @@ const draftSchema = new mongoose.Schema<DraftDocument>(
     description: {
       type: String,
       trim: true,
-      minlength: 20,
+      minlength: 0,
       maxlength: 500,
     },
     creator: {
@@ -48,25 +48,58 @@ const draftSchema = new mongoose.Schema<DraftDocument>(
     personality: {
       type: String,
       trim: true,
-      minlength: 20,
+      minlength: 0,
       maxlength: 5000,
     },
     mbti: {
       type: String,
       trim: true,
-      minlength: 4,
-      maxlength: 4,
+      enum: [
+        'ISTJ',
+        'ISFJ',
+        'INFJ',
+        'INTJ',
+        'ISTP',
+        'ISFP',
+        'INFP',
+        'INTP',
+        'ESTP',
+        'ESFP',
+        'ENFP',
+        'ENTP',
+        'ESTJ',
+        'ESFJ',
+        'ENFJ',
+        'ENTJ',
+      ],
     },
     enneagram: {
-      type: Number,
+      type: String,
       trim: true,
-      max: 9,
-      min: 1,
+      enum: ['1', '2', '3', '4', '5', '6', '7', '8', '9'],
     },
     attachmentStyle: {
       type: String,
       default: 'secure',
       enum: ['secure', 'anxious', 'avoidant', 'disorganised'],
+    },
+    zodiac: {
+      type: String,
+      trim: true,
+      enum: [
+        'aries',
+        'taurus',
+        'gemini',
+        'cancer',
+        'leo',
+        'virgo',
+        'libra',
+        'scorpio',
+        'sagittarius',
+        'capricorn',
+        'aquarius',
+        'pisces',
+      ],
     },
     voice: {
       type: String,
@@ -82,7 +115,7 @@ const draftSchema = new mongoose.Schema<DraftDocument>(
     opening: {
       type: String,
       trim: true,
-      minlength: 2,
+      minlength: 0,
       maxlength: 1000,
     },
     llmModel: {

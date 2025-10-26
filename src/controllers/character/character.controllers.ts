@@ -7,6 +7,7 @@ import {
   CharacterDocument,
   CharacterEditData,
   ChatData,
+  DraftDocument,
   ImageDocument,
   MemoryDocument,
   MessageDocument,
@@ -15,7 +16,7 @@ import ApiError from '../../utils/apiError';
 import ApiResponse from '../../utils/apiResponse';
 import User from '../../models/user.model';
 import Character from '../../models/character.model';
-import { uploadToCloudinary, deleteFromCloudinary } from '../../services/cloudinary';
+import { cloudinary, uploadToCloudinary, deleteFromCloudinary } from '../../services/cloudinary';
 import contentModerator from '../../moderator/contentModerator';
 import createNotification from '../../notification/notification';
 import {
@@ -23,6 +24,7 @@ import {
   createCharacterSchema,
   editCharacterSchema,
   getCharactersOptionSchema,
+  getUserCreationsSchema,
   removeMediaSchema,
 } from '../../validators/character.validators';
 import Image from '../../models/image.model';
@@ -31,6 +33,9 @@ import { communicate, getReplyAdvices, updateContextMemory } from './character.u
 import { MODEL_MEMORY } from '../../constants';
 import { runInTransaction } from '../../services/mongoose';
 import { numericStringSchema } from '../../validators/general.validators';
+import genAI from '../../llm/gemini/gemini';
+import openAI from '../../llm/openAI/openAI';
+import Draft from '../../models/draft.model';
 
 // *************************************************************
 // GET CHARACTERS
@@ -53,7 +58,8 @@ export const getCharacters = asyncHandler(async function (
 
   let result: CharacterDocument[] | null = null;
   let totalCount: number = 0;
-  const selectionFields = 'name characterImage creator';
+  const selectionFields = 'name characterImage avatarImage creator';
+  const verifiedUserFields = 'name characterImage avatarImage description';
 
   if (incomingOption === 'random') {
     const aggregateData = await Character.aggregate([
@@ -126,6 +132,64 @@ export const getCharacters = asyncHandler(async function (
       ]);
     }
 
+    if (incomingOption.startsWith('my-')) {
+      if (!verifiedUser) {
+        return next(new ApiError(401, 'Unauthorized request denied! Please login first.'));
+      }
+
+      if (incomingOption === 'my-creations') {
+        const populatedUser = await User.findById(verifiedUser._id)
+          .select({ creations: { $slice: [skip, limit] } })
+          .populate<{
+            creations: CharacterDocument[];
+          }>('creations', verifiedUserFields);
+
+        if (!populatedUser) {
+          return next(new ApiError(500, 'Error while loading your creations!'));
+        }
+
+        result = populatedUser.creations;
+      }
+
+      if (incomingOption === 'my-followings') {
+        const populatedUser = await User.findById(verifiedUser._id)
+          .select({ followingCharacters: { $slice: [skip, limit] } })
+          .populate<{
+            followingCharacters: CharacterDocument[];
+          }>('followingCharacters', selectionFields);
+
+        if (!populatedUser) {
+          return next(new ApiError(500, 'Error while loading your following characters!'));
+        }
+
+        result = populatedUser.followingCharacters;
+      }
+
+      if (incomingOption === 'my-communications') {
+        const populatedUser = await User.findById(verifiedUser._id)
+          .select({ communications: { $slice: [skip, limit] } })
+          .populate<{
+            communications: CharacterDocument[];
+          }>('communications', selectionFields);
+
+        if (!populatedUser) {
+          return next(new ApiError(500, 'Error while loading your communications!'));
+        }
+
+        result = populatedUser.communications;
+      }
+
+      if (incomingOption === 'my-failbox') {
+        [result, totalCount] = await Promise.all([
+          Character.find({ creator: verifiedUser._id, isApproved: false })
+            .skip(skip)
+            .limit(limit)
+            .select(verifiedUserFields),
+          Character.countDocuments({ creator: verifiedUser._id, isApproved: false }),
+        ]);
+      }
+    }
+
     if (!result) {
       return next(new ApiError(500, 'Failed to load characters!'));
     }
@@ -141,7 +205,7 @@ export const getCharacters = asyncHandler(async function (
 
     return res.status(200).json(
       new ApiResponse({
-        result,
+        characters: result,
         currentPage,
         totalCount,
         hasMore: skip + result.length < totalCount,
@@ -153,7 +217,7 @@ export const getCharacters = asyncHandler(async function (
     return next(new ApiError(500, 'Failed to load characters!'));
   }
 
-  res.status(200).json(new ApiResponse({ result }));
+  res.status(200).json(new ApiResponse({ characters: result }));
 });
 
 // *************************************************************
@@ -164,7 +228,94 @@ export const getCharacterInfo = asyncHandler(async function (
   req: AuthRequest,
   res: Response,
   next: NextFunction
-) {});
+) {
+  const verifiedUser = req.user;
+
+  const { characterId } = req.params;
+
+  const character = await Character.findById(characterId);
+
+  if (!character) {
+    return next(new ApiError(404, 'Character does not exist!'));
+  }
+
+  let characterInfo: CharacterDocument | null = null;
+
+  if (
+    !verifiedUser ||
+    (verifiedUser.role === 'user' && !verifiedUser._id.equals(character.creator))
+  ) {
+    characterInfo = await Character.findById(characterId).select(
+      '-followers -communicators -comments -isApproved -relationship -responseStyle -personality -visibility -reports'
+    );
+  } else {
+    characterInfo = await Character.findById(characterId).select(
+      '-followers -communicators -comments -isApproved -reports'
+    );
+  }
+
+  if (!characterInfo) {
+    return next(new ApiError(500, 'Failed to load the character info!'));
+  }
+
+  res.status(200).json(new ApiResponse({ character: characterInfo }));
+});
+
+// *************************************************************
+// LOAD OTHER USER CREATIONS
+// *************************************************************
+
+export const getUserCreations = asyncHandler(async function (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) {
+  const { data, error } = getUserCreationsSchema.safeParse(req.query);
+
+  if (error) {
+    return next(new ApiError(400, error.issues[0].message));
+  }
+
+  const { userId, page } = data;
+
+  const user = await User.findById(userId);
+
+  if (!user) {
+    return next(new ApiError(404, 'User does not exist!'));
+  }
+
+  const limit = 20;
+  const skip = (page - 1) * limit;
+
+  const [characters, totalCount] = await Promise.all([
+    Character.find({
+      creator: userId,
+      isApproved: true,
+      visibility: 'public',
+    })
+      .select('name characterImage characterAvatar creator')
+      .skip(skip)
+      .limit(limit),
+    Character.countDocuments({
+      creator: userId,
+      isApproved: true,
+      visibility: 'public',
+    }),
+  ]);
+
+  if (!characters) {
+    return next(new ApiError(500, 'Failed to load characters!'));
+  }
+
+  res.status(200).json(
+    new ApiResponse({
+      characters,
+      currentPage: page,
+      totalCount: totalCount || null,
+      hasMore: skip + characters.length < totalCount,
+    })
+  );
+});
 
 // *************************************************************
 // CREATE CHARACTER
@@ -263,7 +414,10 @@ export const createCharacter = asyncHandler(async function (
   let image: ImageDocument | null = null;
   let characterImageUploadResult: UploadApiResponse | null = null;
   if (characterImagePath) {
-    characterImageUploadResult = await uploadToCloudinary(characterImagePath, 'images');
+    characterImageUploadResult = await uploadToCloudinary(characterImagePath, 'images', {
+      cloudinary,
+      deleteTempFile: true,
+    });
 
     if (!characterImageUploadResult) {
       return next(new ApiError(500, 'Failed to upload character image!'));
@@ -283,7 +437,10 @@ export const createCharacter = asyncHandler(async function (
 
   let characterAvatarUploadResult: UploadApiResponse | null = null;
   if (characterAvatarPath) {
-    characterAvatarUploadResult = await uploadToCloudinary(characterAvatarPath, 'images');
+    characterAvatarUploadResult = await uploadToCloudinary(characterAvatarPath, 'images', {
+      cloudinary,
+      deleteTempFile: true,
+    });
 
     if (!characterAvatarUploadResult) {
       return next(new ApiError(500, 'Failed to upload character avatar!'));
@@ -292,7 +449,10 @@ export const createCharacter = asyncHandler(async function (
 
   let musicUploadResult: UploadApiResponse | null = null;
   if (musicPath) {
-    musicUploadResult = await uploadToCloudinary(musicPath, 'musics');
+    musicUploadResult = await uploadToCloudinary(musicPath, 'musics', {
+      cloudinary,
+      deleteTempFile: true,
+    });
 
     if (!musicUploadResult) {
       return next(new ApiError(500, 'Failed to upload the background music!'));
@@ -491,7 +651,7 @@ export const communicateCharacter = asyncHandler(async function (
     chatData.zodiac = character.zodiac;
   }
 
-  const response = await communicate(chatData);
+  const response = await communicate(chatData, { genAI, openAI });
 
   if (response === 'quota-exceeded') {
     return next(new ApiError(429, 'Quota exceeded! Please try again later.'));
@@ -519,7 +679,7 @@ export const communicateCharacter = asyncHandler(async function (
     };
 
     await Promise.all([
-      updateContextMemory(verifiedUser, character, text),
+      updateContextMemory(verifiedUser, character, text, { genAI, openAI }),
       Memory.findByIdAndUpdate(chatHistory._id, {
         $push: {
           messages: {
@@ -807,7 +967,11 @@ export const editCharacter = asyncHandler(async function (
 
   if (characterImagePath) {
     if (characterImage?.usedPrompt === 'Direct Upload' && characterImage?.imageId) {
-      const imageDeleteResult = await deleteFromCloudinary(characterImage.imageId, 'image');
+      const imageDeleteResult = await deleteFromCloudinary(
+        characterImage.imageId,
+        'image',
+        cloudinary
+      );
 
       if (!imageDeleteResult || !['ok', 'not found'].includes(imageDeleteResult.result)) {
         return next(
@@ -816,7 +980,10 @@ export const editCharacter = asyncHandler(async function (
       }
     }
 
-    const imageUploadResult = await uploadToCloudinary(characterImagePath, 'images');
+    const imageUploadResult = await uploadToCloudinary(characterImagePath, 'images', {
+      cloudinary,
+      deleteTempFile: true,
+    });
 
     if (!imageUploadResult) {
       return next(new ApiError(500, 'Failed to upload character image!'));
@@ -836,7 +1003,11 @@ export const editCharacter = asyncHandler(async function (
 
   if (avatarImagePath) {
     if (character.avatarId) {
-      const avatarDeleteResult = await deleteFromCloudinary(character.avatarId, 'image');
+      const avatarDeleteResult = await deleteFromCloudinary(
+        character.avatarId,
+        'image',
+        cloudinary
+      );
 
       if (!avatarDeleteResult || !['ok', 'not found'].includes(avatarDeleteResult.result)) {
         return next(
@@ -845,7 +1016,10 @@ export const editCharacter = asyncHandler(async function (
       }
     }
 
-    avatarUploadResult = await uploadToCloudinary(avatarImagePath, 'images');
+    avatarUploadResult = await uploadToCloudinary(avatarImagePath, 'images', {
+      cloudinary,
+      deleteTempFile: true,
+    });
 
     if (!avatarUploadResult) {
       return next(new ApiError(500, 'Failed to upload avatar image!'));
@@ -854,7 +1028,7 @@ export const editCharacter = asyncHandler(async function (
 
   if (musicImagePath) {
     if (character.musicId) {
-      const musicDeleteResult = await deleteFromCloudinary(character.musicId, 'video');
+      const musicDeleteResult = await deleteFromCloudinary(character.musicId, 'video', cloudinary);
 
       if (!musicDeleteResult || !['ok', 'not found'].includes(musicDeleteResult.result)) {
         return next(
@@ -863,7 +1037,10 @@ export const editCharacter = asyncHandler(async function (
       }
     }
 
-    musicUploadResult = await uploadToCloudinary(musicImagePath, 'musics');
+    musicUploadResult = await uploadToCloudinary(musicImagePath, 'musics', {
+      cloudinary,
+      deleteTempFile: true,
+    });
 
     if (!musicUploadResult) {
       return next(new ApiError(500, 'Failed to upload the music!'));
@@ -985,7 +1162,7 @@ export const deleteMedia = asyncHandler(async function (
       return next(new ApiError(400, 'You have no avatar image to remove!'));
     }
 
-    const deleteResult = await deleteFromCloudinary(character.avatarId, 'image');
+    const deleteResult = await deleteFromCloudinary(character.avatarId, 'image', cloudinary);
 
     if (!deleteResult || !['ok', 'not found'].includes(deleteResult.result)) {
       return next(new ApiError(500, 'Failed to delete avatar image!'));
@@ -1011,7 +1188,7 @@ export const deleteMedia = asyncHandler(async function (
       return next(new ApiError(400, 'You have no music to remove!'));
     }
 
-    const deleteResult = await deleteFromCloudinary(character.musicId, 'video');
+    const deleteResult = await deleteFromCloudinary(character.musicId, 'video', cloudinary);
 
     if (!deleteResult || !['ok', 'not found'].includes(deleteResult.result)) {
       return next(new ApiError(500, 'Failed to delete the character music!'));
@@ -1069,7 +1246,11 @@ export const dropCharacter = asyncHandler(async function (
   }
 
   if (characterImage.usedPrompt === 'Direct Upload') {
-    const imageDeleteResult = await deleteFromCloudinary(characterImage.imageId, 'image');
+    const imageDeleteResult = await deleteFromCloudinary(
+      characterImage.imageId,
+      'image',
+      cloudinary
+    );
 
     if (!imageDeleteResult || !['ok', 'not found'].includes(imageDeleteResult.result)) {
       return next(
@@ -1079,7 +1260,7 @@ export const dropCharacter = asyncHandler(async function (
   }
 
   if (character.avatarId) {
-    const avatarDeleteResult = await deleteFromCloudinary(character.avatarId, 'image');
+    const avatarDeleteResult = await deleteFromCloudinary(character.avatarId, 'image', cloudinary);
 
     if (!avatarDeleteResult || !['ok', 'not found'].includes(avatarDeleteResult.result)) {
       return next(new ApiError(500, 'Failed to delete avatar due to internal server error!'));
@@ -1087,7 +1268,7 @@ export const dropCharacter = asyncHandler(async function (
   }
 
   if (character.musicId) {
-    const musicDeleteResult = await deleteFromCloudinary(character.musicId, 'video');
+    const musicDeleteResult = await deleteFromCloudinary(character.musicId, 'video', cloudinary);
 
     if (!musicDeleteResult || !['ok', 'not found'].includes(musicDeleteResult.result)) {
       return next(new ApiError(500, 'Failed to delete music due to internal server error!'));
@@ -1191,7 +1372,7 @@ export const getPossibleReplies = asyncHandler(async function (
     return next(new ApiError(400, 'Paid subscription required to use GPT models!'));
   }
 
-  const replies = await getReplyAdvices(character, verifiedUser);
+  const replies = await getReplyAdvices(character, verifiedUser, { genAI, openAI });
 
   if (replies === 'error') {
     return next(new ApiError(500, 'Failed to generate reply advices!'));

@@ -14,9 +14,10 @@ import {
   changeProfileImageSchema,
   profileDescriptionSchema,
   userPersonalitySchema,
+  getUsersSchema,
 } from '../../validators/user.validators';
 import SecretCode from '../../models/secretCode.model';
-import { uploadToCloudinary, deleteFromCloudinary } from '../../services/cloudinary';
+import { uploadToCloudinary, deleteFromCloudinary, cloudinary } from '../../services/cloudinary';
 import contentModerator from '../../moderator/contentModerator';
 import createNotification from '../../notification/notification';
 import { runInTransaction } from '../../services/mongoose';
@@ -25,7 +26,7 @@ import { runInTransaction } from '../../services/mongoose';
 // GET USER's OWN DETAILS
 // *************************************************************
 
-export const getUserDetails = asyncHandler(async function (
+export const getMyDetails = asyncHandler(async function (
   req: AuthRequest,
   res: Response,
   next: NextFunction
@@ -37,7 +38,7 @@ export const getUserDetails = asyncHandler(async function (
   }
 
   const user = await User.findById(verifiedUser._id).select(
-    '-password -refreshToken -registeredBy -lastUsernameChanged -usernameCooldown -__v'
+    '-password -refreshToken -registeredBy -lastUsernameChanged -usernameCooldown -creations -drafts -communications -reports -__v'
   );
 
   if (!user) {
@@ -51,7 +52,7 @@ export const getUserDetails = asyncHandler(async function (
 // GET OTHER USER DETAIL
 // *************************************************************
 
-export const getOtherUser = asyncHandler(async function (
+export const getUserDetails = asyncHandler(async function (
   req: Request,
   res: Response,
   next: NextFunction
@@ -59,7 +60,7 @@ export const getOtherUser = asyncHandler(async function (
   const userId = req.params.id;
 
   const user = await User.findById(userId).select(
-    'fullname profileImage profileDescription subscriberCount subscribingCount totalFollowers creationCount creations'
+    'fullname profileImage profileDescription subscriberCount subscribingCount totalFollowers creationCount'
   );
 
   if (!user) {
@@ -67,6 +68,52 @@ export const getOtherUser = asyncHandler(async function (
   }
 
   res.status(200).json(new ApiResponse({ user }));
+});
+
+// *************************************************************
+// LOAD MULTIPLE USERS
+// *************************************************************
+
+export const loadUsers = asyncHandler(async function (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) {
+  const verifiedUser = req.user;
+
+  if (!verifiedUser) {
+    return next(new ApiError(401, 'Unauthorized request denied!'));
+  }
+
+  const { data, error } = getUsersSchema.safeParse(req.query);
+
+  if (error) {
+    return next(new ApiError(400, error.issues[0].message));
+  }
+
+  const { type: userType, page } = data;
+
+  const limit = 20;
+  const skip = (page - 1) * limit;
+
+  const populatedUser = await User.findById(verifiedUser._id)
+    .select({ subscribers: { $slice: [skip, limit] }, subscribing: { $slice: [skip, limit] } })
+    .populate(userType, 'fullname profileImage totalFollowers');
+
+  if (!populatedUser) {
+    return next(new ApiError(500, 'Failed to load users!'));
+  }
+
+  const users = populatedUser[userType];
+
+  res.status(200).json(
+    new ApiResponse({
+      users,
+      currentPage: page,
+      totalCount: verifiedUser[userType].length,
+      hasMore: skip + users.length < verifiedUser[userType].length,
+    })
+  );
 });
 
 // *************************************************************
@@ -326,7 +373,11 @@ export const changeProfileImage = asyncHandler(async function (
       return next(new ApiError(400, 'You do not have profile image to remove!'));
     }
 
-    const deleteResult = await deleteFromCloudinary(verifiedUser.profileImageId, 'image');
+    const deleteResult = await deleteFromCloudinary(
+      verifiedUser.profileImageId,
+      'image',
+      cloudinary
+    );
 
     if (!deleteResult || !['ok', 'not found'].includes(deleteResult.result)) {
       return next(new ApiError(500, 'Failed to remove image because of internal server error!'));
@@ -352,7 +403,11 @@ export const changeProfileImage = asyncHandler(async function (
   }
 
   if (verifiedUser.profileImageId) {
-    const deleteResult = await deleteFromCloudinary(verifiedUser.profileImageId, 'image');
+    const deleteResult = await deleteFromCloudinary(
+      verifiedUser.profileImageId,
+      'image',
+      cloudinary
+    );
 
     if (!deleteResult || !['ok', 'not found'].includes(deleteResult.result)) {
       return next(new ApiError(500, 'Image upload failed because of internal server error!.'));
@@ -361,7 +416,10 @@ export const changeProfileImage = asyncHandler(async function (
 
   const filePath = imageFile.path;
 
-  const uploadResult = await uploadToCloudinary(filePath, 'profileImages');
+  const uploadResult = await uploadToCloudinary(filePath, 'profileImages', {
+    cloudinary,
+    deleteTempFile: true,
+  });
 
   if (!uploadResult) {
     return next(new ApiError(500, 'Image upload failed because of internal server error!.'));

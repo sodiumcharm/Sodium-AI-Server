@@ -3,8 +3,8 @@ import { uploadUserImage } from '../middlewares/multer.middleware';
 import { verifyAuth } from '../middlewares/tokenChecker.middleware';
 import { checkEmailVerification } from '../middlewares/emailChecker.middleware';
 import {
+  getMyDetails,
   getUserDetails,
-  getOtherUser,
   toggle2FA,
   changeUsername,
   changeFullname,
@@ -14,14 +14,18 @@ import {
   setPersonality,
   setDescription,
   subscribe,
+  loadUsers,
 } from '../controllers/user/user.controllers';
 import { imageCheckerAI } from '../middlewares/imageChecker.middleware';
+import { processProfileImage } from '../middlewares/imageProcessor.middleware';
 
 const router = Router();
 
-router.route('/me').get(verifyAuth, getUserDetails);
+router.route('/me').get(verifyAuth, getMyDetails);
 
-router.route('/:id').get(getOtherUser);
+router.route('/user-info/:id').get(getUserDetails);
+
+router.route('/load-users').get(verifyAuth, loadUsers);
 
 router.route('/toggle-2fa').patch(verifyAuth, checkEmailVerification, toggle2FA);
 
@@ -39,6 +43,7 @@ router
     verifyAuth,
     checkEmailVerification,
     uploadUserImage.single('profileImage'),
+    processProfileImage,
     imageCheckerAI,
     changeProfileImage
   );

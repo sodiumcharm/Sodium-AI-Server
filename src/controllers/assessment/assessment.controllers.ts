@@ -8,6 +8,7 @@ import PersonalityResult from '../../models/personalityResult.model';
 import { mbtiScoreSchema } from '../../validators/assessment.validators';
 import { determineMBTI } from '../../personalityAssessment/assessments';
 import mbtiQuestions from '../../personalityAssessment/mbtiQuestions';
+import hfClient from '../../llm/huggingFace/huggingFace';
 
 export const getMbtiAssessment = asyncHandler(async function (
   req: AuthRequest,
@@ -68,7 +69,7 @@ export const createMbtiResult = asyncHandler(async function (
 
   const scores = data;
 
-  const result = await determineMBTI(scores, verifiedUser);
+  const result = await determineMBTI(scores, verifiedUser, hfClient);
 
   if (!result.success) {
     return next(new ApiError(500, 'Failed to analyze the result!'));

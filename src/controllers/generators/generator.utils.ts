@@ -1,4 +1,3 @@
-import hfClient from '../../llm/huggingFace/huggingFace';
 import { randomContentGeneratorPrompt } from '../../prompts/generator.prompts';
 import fs from 'fs/promises';
 import path from 'path';
@@ -6,8 +5,12 @@ import { ImageStyle } from '../../types/types';
 import { IMAGE_MODELS } from '../../constants';
 import imagePrompts from '../../prompts/image.prompts';
 import logger from '../../utils/logger';
+import { InferenceClient } from '@huggingface/inference';
 
-export const generateRandomContent = async function (context: string): Promise<string | 'error'> {
+export const generateRandomContent = async function (
+  context: string,
+  hfClient: InferenceClient
+): Promise<string | 'error'> {
   try {
     const prompt = randomContentGeneratorPrompt(context);
 
@@ -29,6 +32,7 @@ export const generateRandomContent = async function (context: string): Promise<s
 export const generateImage = async function (
   prompt: string | undefined,
   style: ImageStyle,
+  hfClient: InferenceClient,
   referenceImagePath?: string
 ): Promise<string | null> {
   try {

@@ -92,6 +92,12 @@ const userSchema = new mongoose.Schema<UserDocument>(
       type: Boolean,
       default: false,
     },
+    plan: {
+      type: String,
+      trim: true,
+      default: 'free-tier',
+      enum: ['free-tier', 'sodium-pro'],
+    },
     gender: {
       type: String,
       trim: true,
@@ -214,6 +220,10 @@ const userSchema = new mongoose.Schema<UserDocument>(
         },
       },
     ],
+    socialMerit: {
+      type: Number,
+      default: 0,
+    },
   },
   { timestamps: true }
 );

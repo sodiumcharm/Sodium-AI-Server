@@ -2,6 +2,9 @@ import { Request, Response, NextFunction } from 'express';
 import { Types, Document } from 'mongoose';
 import jwt from 'jsonwebtoken';
 import { Socket } from 'socket.io';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import OpenAI from 'openai';
+import { cloudinary } from '../services/cloudinary';
 
 export type AsyncRouteHandler = (
   req: Request,
@@ -200,6 +203,7 @@ export interface UserDocument extends Document {
   role: 'user' | 'admin';
   status: 'active' | 'suspended' | 'banned';
   isPaid: boolean;
+  plan: 'free-tier' | 'sodium-pro';
   gender: 'male' | 'female' | 'unknown';
   personality?: string;
   mbti?: MbtiType;
@@ -218,6 +222,7 @@ export interface UserDocument extends Document {
   createdAt: Date;
   updatedAt: Date;
   notifications: Notification[];
+  socialMerit: number;
   isPasswordCorrect(password: string): Promise<boolean>;
   generateAccessToken(): string;
   generateRefreshToken(): string;
@@ -343,7 +348,7 @@ export interface DraftDocument extends Document {
   name?: string;
   gender?: CharacterGender;
   description?: string;
-  creator?: Types.ObjectId;
+  creator: Types.ObjectId;
   relationship?: string;
   responseStyle?: ResponseStyle;
   characterAvatar?: string;
@@ -352,7 +357,8 @@ export interface DraftDocument extends Document {
   personality?: string;
   mbti?: MbtiType;
   enneagram?: EnneagramType;
-  attachmentStyle: AttachmentType;
+  attachmentStyle?: AttachmentType;
+  zodiac?: Zodiac;
   voice?: string;
   music?: string;
   musicId?: string;
@@ -363,6 +369,32 @@ export interface DraftDocument extends Document {
   createdAt: Date;
   updatedAt: Date;
 }
+
+export type DraftData = {
+  draftId?: string;
+  name?: string;
+  gender?: CharacterGender;
+  description?: string;
+  creator?: string;
+  relationship?: string;
+  responseStyle?: ResponseStyle;
+  characterAvatar?: string;
+  avatarId?: string;
+  characterImage?: string;
+  imageId?: string;
+  personality?: string;
+  mbti?: MbtiType;
+  enneagram?: EnneagramType;
+  attachmentStyle?: AttachmentType;
+  zodiac?: Zodiac;
+  voice?: string;
+  music?: string;
+  musicId?: string;
+  opening?: string;
+  llmModel?: LlmModel;
+  tags?: string;
+  visibility?: 'public' | 'private';
+};
 
 export interface ImageDocument extends Document {
   _id: Types.ObjectId;
@@ -445,6 +477,13 @@ export interface PersonalityResultDocument extends Document {
   details: string;
 }
 
+export interface MeritDocument extends Document {
+  _id: Types.ObjectId;
+  user: Types.ObjectId;
+  meritContributors: Types.ObjectId[];
+  reports: Types.ObjectId[];
+}
+
 export type ImagePrompt = {
   generic: string;
   realistic: string;
@@ -513,4 +552,14 @@ export type UserModerationResult = {
   statusCode: 200 | 400 | 500;
   status: 'allowed' | 'suspended' | 'banned' | 'activation-error' | 'error';
   message: string;
+};
+
+export type CommunicationDependency = {
+  genAI: GoogleGenerativeAI;
+  openAI: OpenAI;
+};
+
+export type CloudinaryDependency = {
+  cloudinary: typeof cloudinary;
+  deleteTempFile: boolean;
 };

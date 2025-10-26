@@ -12,6 +12,7 @@ import homeRouter from './routes/home.route';
 import authRouter from './routes/auth.routes';
 import userRouter from './routes/user.routes';
 import characterRouter from './routes/character.routes';
+import draftRouter from './routes/draft.routes';
 import generatorRouter from './routes/generator.routes';
 import assessmentRouter from './routes/assessment.routes';
 import globalErrorHandler from './error/errorHandler';
@@ -45,6 +46,8 @@ app.use(`${API_URL}/auth`, authRouter);
 app.use(`${API_URL}/users`, userRouter);
 
 app.use(`${API_URL}/characters`, characterRouter);
+
+app.use(`${API_URL}/drafts`, draftRouter);
 
 app.use(`${API_URL}/generators`, generatorRouter);
 

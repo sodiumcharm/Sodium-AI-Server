@@ -5,7 +5,7 @@ import ApiResponse from '../../utils/apiResponse';
 import User from '../../models/user.model';
 import { registerSchema, loginSchema } from '../../validators/auth.validators';
 import { UploadApiResponse } from 'cloudinary';
-import { uploadToCloudinary } from '../../services/cloudinary';
+import { cloudinary, uploadToCloudinary } from '../../services/cloudinary';
 import { accessTokenCookieOption, refreshTokenCookieOption } from '../../config/cookie';
 import generateWelcomeEmail from '../../templates/welcome.mail';
 import sendMail from '../../config/nodemailer';
@@ -14,6 +14,7 @@ import generateLoginAttemptEmail from '../../templates/loginAttempt.mail';
 import { createAndSendOTP, verifyOTP } from '../otp/otp.utils';
 import { otpVerificationSchema } from '../../validators/otp.validators';
 import { generateTokens } from './auth.utils';
+import UserMerit from '../../models/merit.model';
 
 // *************************************************************
 // REGISTER USER
@@ -63,7 +64,10 @@ export const registerUser = asyncHandler(async function (
   let uploadResult: UploadApiResponse | null = null;
 
   if (profileImagePath) {
-    uploadResult = await uploadToCloudinary(profileImagePath, 'profileImages');
+    uploadResult = await uploadToCloudinary(profileImagePath, 'profileImages', {
+      cloudinary,
+      deleteTempFile: true,
+    });
 
     if (!uploadResult) {
       return next(new ApiError(500, 'Profile image upload failed!'));
@@ -81,6 +85,14 @@ export const registerUser = asyncHandler(async function (
   });
 
   if (!user) {
+    return next(new ApiError(500, 'Sign up failed! Please try again.'));
+  }
+
+  const userMeritDoc = await UserMerit.create({
+    user: user._id,
+  });
+
+  if (!userMeritDoc) {
     return next(new ApiError(500, 'Sign up failed! Please try again.'));
   }
 

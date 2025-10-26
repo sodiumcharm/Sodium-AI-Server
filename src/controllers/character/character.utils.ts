@@ -1,6 +1,9 @@
-import { CharacterDocument, ChatData, UserDocument } from '../../types/types';
-import genAI from '../../llm/gemini/gemini';
-import openAI from '../../llm/openAI/openAI';
+import {
+  CharacterDocument,
+  ChatData,
+  UserDocument,
+  CommunicationDependency,
+} from '../../types/types';
 import boundaryPrompt from '../../prompts/boundary.prompts';
 import personalityPrompt from '../../prompts/personality.prompts';
 import { rolePlayPrompt, professionalPrompt } from '../../prompts/response.prompts';
@@ -11,7 +14,8 @@ import logger from '../../utils/logger';
 import { contextMemoryPrompt } from '../../prompts/generator.prompts';
 
 export const communicate = async function (
-  chatData: ChatData
+  chatData: ChatData,
+  dependency: CommunicationDependency
 ): Promise<string | 'quota-exceeded' | 'error'> {
   const {
     text,
@@ -31,7 +35,7 @@ export const communicate = async function (
 
   try {
     if (llmModel.startsWith('gemini')) {
-      const model = genAI.getGenerativeModel({ model: llmModel });
+      const model = dependency.genAI.getGenerativeModel({ model: llmModel });
 
       const commonPrompts = [
         `Your Name: ${characterName}`,
@@ -65,7 +69,7 @@ export const communicate = async function (
 
       return result.response.text();
     } else {
-      const completion = await openAI.chat.completions.create({
+      const completion = await dependency.openAI.chat.completions.create({
         model: llmModel,
         messages: [
           { role: 'system', content: `Your Name: ${characterName}` },
@@ -109,7 +113,8 @@ export const communicate = async function (
 
 export const getReplyAdvices = async function (
   character: CharacterDocument,
-  user: UserDocument
+  user: UserDocument,
+  dependency: CommunicationDependency
 ): Promise<string[] | 'error'> {
   try {
     const memory = await Memory.findOne(
@@ -123,13 +128,26 @@ export const getReplyAdvices = async function (
 
     if (!text || text.trim() === '') return 'error';
 
-    const model = genAI.getGenerativeModel({ model: character.llmModel });
+    let response: string | null = null;
 
-    const prompt = replyAdvicePrompt(user, text);
+    if (character.llmModel.startsWith('gpt')) {
+      const completion = await dependency.openAI.chat.completions.create({
+        model: character.llmModel,
+        messages: [{ role: 'system', content: replyAdvicePrompt(user, text) }],
+      });
 
-    const result = await model.generateContent(prompt);
+      response = completion.choices[0].message.content;
+    } else {
+      const model = dependency.genAI.getGenerativeModel({ model: character.llmModel });
 
-    const response = result.response.text();
+      const prompt = replyAdvicePrompt(user, text);
+
+      const result = await model.generateContent(prompt);
+
+      response = result.response.text();
+    }
+
+    if (!response) return 'error';
 
     const responseArr = response.split('; ');
 
@@ -144,7 +162,8 @@ export const getReplyAdvices = async function (
 export const updateContextMemory = async function (
   user: UserDocument,
   character: CharacterDocument,
-  text: string
+  text: string,
+  dependency: CommunicationDependency
 ): Promise<boolean> {
   try {
     const memory = await Memory.findOne({ user: user._id, character: character._id });
@@ -154,14 +173,14 @@ export const updateContextMemory = async function (
     let result: string | null = null;
 
     if (user.isPaid) {
-      const response = await openAI.chat.completions.create({
+      const response = await dependency.openAI.chat.completions.create({
         model: 'gpt-4o',
         messages: [{ role: 'system', content: contextMemoryPrompt(memory.contextMemory, text) }],
       });
 
       result = response.choices[0].message.content;
     } else {
-      const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+      const model = dependency.genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
       const response = await model.generateContent(contextMemoryPrompt(memory.contextMemory, text));
 

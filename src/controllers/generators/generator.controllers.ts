@@ -5,10 +5,11 @@ import ApiError from '../../utils/apiError';
 import ApiResponse from '../../utils/apiResponse';
 import { generateImage, generateRandomContent } from './generator.utils';
 import { imageGenerationSchema } from '../../validators/generator.validators';
-import { deleteFromCloudinary, uploadToCloudinary } from '../../services/cloudinary';
+import { deleteFromCloudinary, uploadToCloudinary, cloudinary } from '../../services/cloudinary';
 import Image from '../../models/image.model';
 import contentModerator from '../../moderator/contentModerator';
 import { numericStringSchema } from '../../validators/general.validators';
+import hfClient from '../../llm/huggingFace/huggingFace';
 
 export const getImages = asyncHandler(async function (
   req: AuthRequest,
@@ -65,7 +66,7 @@ export const generateTextContent = asyncHandler(async function (
 
   const { context } = req.params;
 
-  const result = await generateRandomContent(context);
+  const result = await generateRandomContent(context, hfClient);
 
   if (result === 'error') {
     return next(new ApiError(500, 'Failed to generate content!'));
@@ -116,7 +117,12 @@ export const createImage = asyncHandler(async function (
 
   const uploadedReferenceImagePath = req.file?.path;
 
-  const generatedImagePath = await generateImage(prompt, style, uploadedReferenceImagePath);
+  const generatedImagePath = await generateImage(
+    prompt,
+    style,
+    hfClient,
+    uploadedReferenceImagePath
+  );
 
   if (!generatedImagePath) {
     return next(
@@ -127,7 +133,10 @@ export const createImage = asyncHandler(async function (
     );
   }
 
-  const imageUploadResult = await uploadToCloudinary(generatedImagePath, 'images');
+  const imageUploadResult = await uploadToCloudinary(generatedImagePath, 'images', {
+    cloudinary,
+    deleteTempFile: true,
+  });
 
   if (!imageUploadResult) {
     return next(new ApiError(500, 'Failed to save generated image!'));
@@ -183,7 +192,7 @@ export const deleteImage = asyncHandler(async function (
     );
   }
 
-  const deleteResult = await deleteFromCloudinary(image.imageId, 'image');
+  const deleteResult = await deleteFromCloudinary(image.imageId, 'image', cloudinary);
 
   if (!deleteResult || !['ok', 'not found'].includes(deleteResult.result)) {
     return next(new ApiError(500, 'Failed to delete image due to internal server error!'));

@@ -11,13 +11,19 @@ import {
   dropCharacter,
   editCharacter,
   followCharacter,
+  getCharacterInfo,
   getCharacters,
   getPossibleReplies,
+  getUserCreations,
 } from '../controllers/character/character.controllers';
 
 const router = Router();
 
 router.route('/get-characters').get(softAuthChecker, getCharacters);
+
+router.route('/get-info/:characterId').get(softAuthChecker, getCharacterInfo);
+
+router.route('/get-creations').get(getUserCreations);
 
 router.route('/create').post(
   verifyAuth,

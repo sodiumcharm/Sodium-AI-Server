@@ -24,7 +24,9 @@ export const generateTokens = async function (user: UserDocument): Promise<Token
     user._id,
     { $set: { refreshToken: hashedRefreshToken } },
     { new: true }
-  ).select('-password -refreshToken -registeredBy -lastUsernameChanged -usernameCooldown -__v');
+  ).select(
+    '-password -refreshToken -registeredBy -lastUsernameChanged -usernameCooldown -subscribers -subscribing -creations -drafts -followingCharacters -communications -__v'
+  );
 
   if (!updatedUser) {
     return {
