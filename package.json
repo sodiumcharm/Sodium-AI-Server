@@ -28,6 +28,7 @@
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
     "@huggingface/inference": "^4.8.0",
+    "agenda": "^5.0.0",
     "bcrypt": "^6.0.0",
     "cloudinary": "^2.7.0",
     "compression": "^1.8.1",

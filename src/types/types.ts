@@ -5,6 +5,7 @@ import { Socket } from 'socket.io';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import OpenAI from 'openai';
 import { cloudinary } from '../services/cloudinary';
+import { JobAttributesData } from 'agenda';
 
 export type AsyncRouteHandler = (
   req: Request,
@@ -563,3 +564,12 @@ export type CloudinaryDependency = {
   cloudinary: typeof cloudinary;
   deleteTempFile: boolean;
 };
+
+export interface CreateReminder extends JobAttributesData {
+  userId: string;
+  userName: string;
+  characterName: string;
+  characterId: string;
+  userEmail: string;
+  message: string;
+}

@@ -2,7 +2,13 @@ import { Router } from 'express';
 import { uploadCharacterData } from '../middlewares/multer.middleware';
 import { verifyAuth } from '../middlewares/tokenChecker.middleware';
 import { imageCheckerAI } from '../middlewares/imageChecker.middleware';
-import { createDraft, editDraft, publishDraft } from '../controllers/draft/draft.controllers';
+import {
+  createDraft,
+  deleteDraft,
+  deleteDraftMedia,
+  editDraft,
+  publishDraft,
+} from '../controllers/draft/draft.controllers';
 import { checkEmailVerification } from '../middlewares/emailChecker.middleware';
 
 const router = Router();
@@ -30,5 +36,9 @@ router.route('/edit').patch(
 );
 
 router.route('/publish/:draftId').post(verifyAuth, checkEmailVerification, publishDraft);
+
+router.route('/delete/:draftId').delete(verifyAuth, deleteDraft);
+
+router.route('/delete-media').patch(verifyAuth, deleteDraftMedia);
 
 export default router;

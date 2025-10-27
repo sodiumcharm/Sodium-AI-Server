@@ -25,6 +25,7 @@ import {
   editCharacterSchema,
   getCharactersOptionSchema,
   getUserCreationsSchema,
+  reminderSchema,
   removeMediaSchema,
 } from '../../validators/character.validators';
 import Image from '../../models/image.model';
@@ -32,10 +33,11 @@ import Memory from '../../models/memory.model';
 import { communicate, getReplyAdvices, updateContextMemory } from './character.utils';
 import { MODEL_MEMORY } from '../../constants';
 import { runInTransaction } from '../../services/mongoose';
-import { numericStringSchema } from '../../validators/general.validators';
+import { numericStringSchema, objectIdSchema } from '../../validators/general.validators';
 import genAI from '../../llm/gemini/gemini';
 import openAI from '../../llm/openAI/openAI';
 import Draft from '../../models/draft.model';
+import agenda from '../../jobs/agenda';
 
 // *************************************************************
 // GET CHARACTERS
@@ -1123,7 +1125,7 @@ export const editCharacter = asyncHandler(async function (
 });
 
 // *************************************************************
-// DELETE CHARACTER
+// DELETE CHARACTER MEDIA
 // *************************************************************
 
 export const deleteMedia = asyncHandler(async function (
@@ -1144,6 +1146,10 @@ export const deleteMedia = asyncHandler(async function (
   }
 
   const { characterId, target } = data;
+
+  if (!characterId) {
+    return next(new ApiError(400, 'Character id is required!'));
+  }
 
   const character = await Character.findById(characterId).select('+avatarId +musicId');
 
@@ -1381,4 +1387,174 @@ export const getPossibleReplies = asyncHandler(async function (
   res
     .status(200)
     .json(new ApiResponse({ replies }, 'You have successfully received reply advices'));
+});
+
+// *************************************************************
+// SET REMINDER
+// *************************************************************
+
+export const setReminder = asyncHandler(async function (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) {
+  if (!req.body) {
+    return next(
+      new ApiError(
+        400,
+        'Empty Request Body: Please provide characterId, remindAt and message in the request body!'
+      )
+    );
+  }
+
+  const verifiedUser = req.user;
+
+  if (!verifiedUser) {
+    return next(new ApiError(401, 'Unauthorized request denied!'));
+  }
+
+  const { data, error } = reminderSchema.safeParse(req.body);
+
+  if (error) {
+    return next(new ApiError(400, error.issues[0].message));
+  }
+
+  const { characterId, remindAt, timezone, message } = data;
+
+  const remindDate = new Date(remindAt);
+
+  if (isNaN(remindDate.getTime())) {
+    return next(new ApiError(400, 'Invalid reminder time provided!'));
+  }
+
+  const [character, memory] = await Promise.all([
+    Character.findById(characterId),
+    Memory.findOne({ character: characterId, user: verifiedUser._id }),
+  ]);
+
+  if (!character) {
+    return next(new ApiError(404, 'Character does no longer exist!'));
+  }
+
+  if (!memory) {
+    return next(
+      new ApiError(
+        400,
+        `You have to interact with the character before setting a reminder as ${character.name} does not know you!`
+      )
+    );
+  }
+
+  if (
+    verifiedUser.role === 'user' &&
+    !verifiedUser.isPaid &&
+    character.llmModel.startsWith('gpt')
+  ) {
+    return next(new ApiError(400, 'Paid subscription required to use GPT models!'));
+  }
+
+  const humanTime = new Date(remindAt).toLocaleString('en-US', {
+    timeZone: timezone,
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+
+  const chatData: ChatData = {
+    text: `User has set a reminder with you on ${humanTime}. User sent reminder text: ${message}. You have to reply based on the user sent reminder text, your personality and remind the user for the meetup. Your response should feel like a personal message directly from you - not a notification or system message. Response should be 200-300 words long.`,
+    llmModel: character.llmModel,
+    characterName: character.name,
+    gender: character.gender,
+    personality: character.personality,
+    responseStyle: character.responseStyle,
+    chatHistory: memory.messages,
+    memory: memory.contextMemory,
+  };
+
+  if (character.mbti) {
+    chatData.mbti = character.mbti;
+  }
+
+  if (character.enneagram) {
+    chatData.enneagram = character.enneagram;
+  }
+
+  if (character.attachmentStyle) {
+    chatData.attachmentStyle = character.attachmentStyle;
+  }
+
+  if (character.zodiac) {
+    chatData.zodiac = character.zodiac;
+  }
+
+  const response = await communicate(chatData, { genAI, openAI });
+
+  if (response === 'quota-exceeded') {
+    return next(new ApiError(429, 'Quota exceeded! Please try again later.'));
+  }
+
+  if (response === 'error') {
+    return next(new ApiError(500, 'Failed to set reminder with the character!'));
+  }
+
+  await agenda.schedule(remindDate, 'send reminder email', {
+    userId: verifiedUser._id,
+    userName: verifiedUser.fullname,
+    userEmail: verifiedUser.email,
+    characterName: character.name,
+    characterId: character._id,
+    message: response,
+  });
+
+  const reminderChat = {
+    sender: 'user',
+    content: `I set a plan with you on ${humanTime}: ${message}`,
+    timestamp: new Date(),
+  };
+
+  await Memory.findByIdAndUpdate(memory._id, {
+    $push: {
+      messages: {
+        $each: [reminderChat],
+        $slice: -50,
+      },
+    },
+  });
+
+  res.status(200).json(new ApiResponse(null, 'Reminder was set successfully.'));
+});
+
+// *************************************************************
+// CANCEL ALL REMINDERS
+// *************************************************************
+
+export const cancelAllReminders = asyncHandler(async function (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) {
+  const verifiedUser = req.user;
+
+  if (!verifiedUser) {
+    return next(new ApiError(401, 'Unauthorized request denied!'));
+  }
+
+  const { characterId } = req.params;
+
+  const { data: charId, error } = objectIdSchema.safeParse(characterId);
+
+  if (error) {
+    return next(new ApiError(400, error.issues[0].message));
+  }
+
+  await agenda.cancel({
+    name: 'send reminder email',
+    'data.userId': verifiedUser._id,
+    'data.characterId': charId,
+  });
+
+  res.status(200).json(new ApiResponse(null, 'All reminders were cleared successfully.'));
 });

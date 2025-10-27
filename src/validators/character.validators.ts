@@ -3,7 +3,7 @@ import { z } from 'zod';
 export const createCharacterSchema = z
   .object({
     name: z
-      .string({ error: 'Character name must be a string!' })
+      .string({ error: 'Invalid or empty character name is provided!' })
       .trim()
       .min(1, { message: 'Character name is required!' })
       .max(50, { message: 'Character name must be at most 50 characters long!' })
@@ -16,12 +16,12 @@ export const createCharacterSchema = z
       })
       .default('non-binary'),
     description: z
-      .string({ error: 'Character description must be a string!' })
+      .string({ error: 'Invalid or empty description is provided!' })
       .trim()
       .min(1, { message: 'Character description is required!' })
       .max(500, { message: 'Character description must be at most 500 characters long!' }),
     relationship: z
-      .string({ error: 'Empty or invalid input type was provided for relationship!' })
+      .string({ error: 'Empty or invalid relationship was provided!' })
       .trim()
       .min(1, { message: 'Character relationship is required!' })
       .max(100, { message: 'Character relationship must be at most 100 characters long!' }),
@@ -31,12 +31,12 @@ export const createCharacterSchema = z
       })
       .default('role-play'),
     imageId: z
-      .string({ error: 'Empty or invalid input type was provided for image!' })
+      .string({ error: 'Empty or invalid value was provided for image!' })
       .trim()
       .regex(/^[a-f\d]{24}$/i, { message: 'Invalid image id provided!' })
       .optional(),
     personality: z
-      .string({ error: 'Empty or invalid input type was provided for personality!' })
+      .string({ error: 'Empty or invalid value was provided for personality!' })
       .trim()
       .min(20, { message: 'Character personality must be at least 20 characters long!' })
       .max(5000, { message: 'Character personality must be at most 5000 characters long!' }),
@@ -97,12 +97,12 @@ export const createCharacterSchema = z
       )
       .optional(),
     voice: z
-      .string({ error: 'Empty or invalid input type was provided for voice!' })
+      .string({ error: 'Empty or invalid value was provided for voice!' })
       .trim()
       .min(1, { message: 'Character voice is required!' })
       .max(50, { message: 'Character voice must be at most 50 characters long!' }),
     opening: z
-      .string({ error: 'Empty or invalid input type was provided for opening!' })
+      .string({ error: 'Empty or invalid value was provided for opening!' })
       .trim()
       .min(2, { message: 'Character opening must be at least 2 characters long!' })
       .max(1000, { message: 'Character opening must be at most 1000 characters long!' }),
@@ -128,7 +128,7 @@ export const createCharacterSchema = z
         }
       )
       .default('gemini-2.0-flash'),
-    tags: z.string({ error: 'Invalid input type was provided for tags!' }).trim().optional(),
+    tags: z.string({ error: 'Invalid value provided for tags!' }).trim().optional(),
     visibility: z
       .enum(['public', 'private'], {
         message: 'Visibility must be either public or private!',
@@ -296,7 +296,13 @@ export const removeMediaSchema = z.object({
   characterId: z
     .string({ error: 'Empty or invalid input type was provided for character!' })
     .trim()
-    .regex(/^[a-f\d]{24}$/i, { message: 'Invalid character id provided!' }),
+    .regex(/^[a-f\d]{24}$/i, { message: 'Invalid character id provided!' })
+    .optional(),
+  draftId: z
+    .string({ error: 'Empty or invalid input type was provided for draft!' })
+    .trim()
+    .regex(/^[a-f\d]{24}$/i, { message: 'Invalid draft id provided!' })
+    .optional(),
   target: z.enum(['avatar', 'music'], {
     message: 'Target must be either avatar or music!',
   }),
@@ -344,4 +350,18 @@ export const getUserCreationsSchema = z.object({
     .string({ error: 'Page number is required!' })
     .regex(/^\d+$/, { message: 'Value must be a number!' })
     .transform(val => Number(val)),
+});
+
+export const reminderSchema = z.object({
+  characterId: z
+    .string({ error: 'Empty or invalid input type was provided for character!' })
+    .trim()
+    .regex(/^[a-f\d]{24}$/i, { message: 'Invalid character id provided!' }),
+  remindAt: z.string({ error: 'You did not provide time for reminder!' }).trim(),
+  timezone: z.string({ error: 'You did not provide timezone for reminder!' }).trim(),
+  message: z
+    .string({ error: 'Empty or invalid input type was provided for character!' })
+    .trim()
+    .min(1, { message: 'Reminder text is required!' })
+    .max(200, { message: 'Character voice must be at most 200 characters long!' }),
 });

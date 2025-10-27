@@ -8,6 +8,7 @@ import { connectDB, showDBConnectionStatus, disconnectDB } from './services/mong
 import cleanTempFolder from './jobs/tempCleaner';
 import { TEMP_CLEANUP_INTERVAL } from './constants';
 import { initSockets } from './websocket/socket';
+import agenda from './jobs/agenda';
 
 // Checking environment variables
 checkEnvVariables(config);
@@ -37,6 +38,8 @@ process.on('unhandledRejection', async (err: Error) => {
     // Disconnect from DB
     await disconnectDB();
 
+    await agenda.drain();
+
     server.close(() => process.exit(1));
   } catch (error) {
     logger.error(`Error during server shutting down: ${error}`);
@@ -50,8 +53,10 @@ showDBConnectionStatus();
 // Connect to Database
 connectDB()
   .then(() => {
-    server.listen(config.PORT, () => {
+    server.listen(config.PORT, async () => {
       logger.info(`Server is running on port ${config.PORT}`);
+      await agenda.start();
+      logger.info('Agenda started and is ready to process jobs.');
     });
   })
   .catch(error => {

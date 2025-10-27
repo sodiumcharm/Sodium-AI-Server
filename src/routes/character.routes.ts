@@ -4,6 +4,7 @@ import { verifyAuth, softAuthChecker } from '../middlewares/tokenChecker.middlew
 import { checkEmailVerification } from '../middlewares/emailChecker.middleware';
 import { imageCheckerAI } from '../middlewares/imageChecker.middleware';
 import {
+  cancelAllReminders,
   clearCommunicationMemory,
   communicateCharacter,
   createCharacter,
@@ -15,6 +16,7 @@ import {
   getCharacters,
   getPossibleReplies,
   getUserCreations,
+  setReminder,
 } from '../controllers/character/character.controllers';
 
 const router = Router();
@@ -59,5 +61,9 @@ router.route('/edit').patch(
 router.route('/remove').delete(verifyAuth, deleteMedia);
 
 router.route('/drop/:characterId').delete(verifyAuth, dropCharacter);
+
+router.route('/remind-me').post(verifyAuth, checkEmailVerification, setReminder);
+
+router.route('/cancel-reminders/:characterId').delete(verifyAuth, cancelAllReminders);
 
 export default router;

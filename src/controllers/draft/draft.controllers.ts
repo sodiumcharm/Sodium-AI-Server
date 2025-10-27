@@ -1,7 +1,13 @@
 import { Response, NextFunction } from 'express';
 import { UploadApiResponse } from 'cloudinary';
 import asyncHandler from '../../utils/asyncHandler';
-import { AuthRequest, CharacterData, DraftData, ImageDocument } from '../../types/types';
+import {
+  AuthRequest,
+  CharacterData,
+  CharacterDocument,
+  DraftData,
+  ImageDocument,
+} from '../../types/types';
 import ApiError from '../../utils/apiError';
 import ApiResponse from '../../utils/apiResponse';
 import User from '../../models/user.model';
@@ -11,8 +17,60 @@ import { createDraftSchema } from '../../validators/draft.validators';
 import Image from '../../models/image.model';
 import { runInTransaction } from '../../services/mongoose';
 import Draft from '../../models/draft.model';
-import { createCharacterSchema } from '../../validators/character.validators';
+import { createCharacterSchema, removeMediaSchema } from '../../validators/character.validators';
 import contentModerator from '../../moderator/contentModerator';
+import createNotification from '../../notification/notification';
+import { numericStringSchema } from '../../validators/general.validators';
+
+// *************************************************************
+// LOAD DRAFTS
+// *************************************************************
+
+export const loadDrafts = asyncHandler(async function (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) {
+  const verifiedUser = req.user;
+
+  if (!verifiedUser) {
+    return next(new ApiError(401, 'Unauthorized request denied! Please login first.'));
+  }
+
+  const { page } = req.params;
+
+  const { data: currentPage, error } = numericStringSchema.safeParse(page);
+
+  if (error) {
+    return next(new ApiError(400, error.issues[0].message));
+  }
+
+  const limit = 20;
+  const skip = (currentPage - 1) * limit;
+
+  const populatedUser = await User.findById(verifiedUser._id)
+    .select({ drafts: { $slice: [skip, limit] } })
+    .populate<{
+      drafts: CharacterDocument[];
+    }>('drafts', 'name characterImage avatarImage description');
+
+  if (!populatedUser) {
+    return next(new ApiError(500, 'Error while loading your drafts!'));
+  }
+
+  const drafts = populatedUser.drafts;
+
+  const totalCount = verifiedUser.drafts.length;
+
+  return res.status(200).json(
+    new ApiResponse({
+      drafts,
+      currentPage,
+      totalCount,
+      hasMore: skip + drafts.length < totalCount,
+    })
+  );
+});
 
 // *************************************************************
 // CREATE DRAFT
@@ -428,11 +486,32 @@ export const publishDraft = asyncHandler(async function (
     return next(new ApiError(404, 'Draft does no longer exist!'));
   }
 
+  if (verifiedUser.role === 'user' && !verifiedUser._id.equals(draft.creator)) {
+    return next(new ApiError(400, 'You are not allowed publish a draft not owned by you!'));
+  }
+
   if (!draft.characterImage) {
     return next(new ApiError(400, 'Please choose a character image!'));
   }
 
-  delete draft.tags;
+  const image = await Image.findById(draft.characterImage).populate<{
+    usedByCharacter: CharacterDocument;
+  }>('usedByCharacter', 'name');
+
+  if (!image) {
+    return next(new ApiError(404, 'Image does not exist! Please choose another one.'));
+  }
+
+  if (image.usedByCharacter) {
+    return next(
+      new ApiError(
+        400,
+        `This image is being already used by your character ${image.usedByCharacter.name}! Please use another image.`
+      )
+    );
+  }
+
+  if (draft.tags) draft.tags = JSON.stringify(draft.tags) as any;
 
   const { data, error } = createCharacterSchema.safeParse(draft);
 
@@ -465,77 +544,259 @@ export const publishDraft = asyncHandler(async function (
     return next(new ApiError(400, 'Opening contains inappropriate content!'));
   }
 
-  console.log(characterData);
+  characterData.creator = draft.creator.toString();
 
-  // characterData.characterImage = draft.characterImage.toString();
+  characterData.isApproved = true;
 
-  // characterData.creator = draft.creator.toString();
-  // characterData.characterAvatar = characterAvatarUploadResult?.secure_url || '';
-  // characterData.avatarId = characterAvatarUploadResult?.public_id || '';
-  // characterData.music = musicUploadResult?.secure_url || '';
-  // characterData.musicId = musicUploadResult?.public_id || '';
-  // characterData.isApproved = true;
-  // if (characterData.tags) characterData.tags = JSON.parse(characterData.tags);
+  characterData.characterImage = draft.characterImage.toString();
 
-  // const character = await Character.create(characterData);
+  if (draft.music) {
+    characterData.music = draft.music;
+    characterData.musicId = draft.musicId;
+  }
 
-  // if (!character) {
-  //   return next(new ApiError(500, 'Failed to create character!'));
-  // }
+  if (draft.characterAvatar) {
+    characterData.characterAvatar = draft.characterAvatar;
+    characterData.avatarId = draft.avatarId;
+  }
 
-  // const [updatedUser, updatedImage, _] = await Promise.all([
-  //   User.findByIdAndUpdate(
-  //     verifiedUser._id,
-  //     {
-  //       $addToSet: { creations: character._id },
-  //       $inc: { creationCount: 1 },
-  //     },
-  //     { new: true }
-  //   ),
-  //   Image.findByIdAndUpdate(
-  //     characterData.characterImage,
-  //     {
-  //       $set: { usedByCharacter: character._id },
-  //     },
-  //     { new: true }
-  //   ),
-  //   createNotification('new', verifiedUser._id),
-  // ]);
+  if (characterData.tags) characterData.tags = JSON.parse(characterData.tags);
 
-  // if (
-  //   !updatedUser ||
-  //   !updatedUser.creations.some(id => id.equals(character._id)) ||
-  //   !updatedImage ||
-  //   !updatedImage.usedByCharacter.equals(character._id)
-  // ) {
-  //   return next(new ApiError(500, 'Failed to update user creations!'));
-  // }
+  const character = await Character.create(characterData);
 
-  // if (characterData.draftId) {
-  //   const result = await runInTransaction(async session => {
-  //     const deletedDoc = await Draft.findByIdAndDelete(characterData.draftId, { session });
+  if (!character) {
+    return next(new ApiError(500, 'Failed to publish the character'));
+  }
 
-  //     const updatedUser = await User.findByIdAndUpdate(
-  //       verifiedUser._id,
-  //       {
-  //         $pull: { drafts: characterData.draftId },
-  //       },
-  //       { new: true, session }
-  //     );
+  const [updatedUser, updatedImage, _] = await Promise.all([
+    User.findByIdAndUpdate(
+      character.creator,
+      {
+        $addToSet: { creations: character._id },
+        $inc: { creationCount: 1 },
+      },
+      { new: true }
+    ),
+    Image.findByIdAndUpdate(
+      character.characterImage,
+      {
+        $set: { usedByCharacter: character._id },
+      },
+      { new: true }
+    ),
+    createNotification('new', character.creator),
+  ]);
 
-  //     if (
-  //       !deletedDoc ||
-  //       !updatedUser ||
-  //       updatedUser.drafts.some(id => id.equals(characterData.draftId))
-  //     ) {
-  //       throw new Error('Failed to delete draft or update the user!');
-  //     }
-  //   });
+  if (
+    !updatedUser ||
+    !updatedUser.creations.some(id => id.equals(character._id)) ||
+    !updatedImage ||
+    !updatedImage.usedByCharacter.equals(character._id)
+  ) {
+    return next(new ApiError(500, 'Failed to update user creations!'));
+  }
 
-  //   if (result === 'error') {
-  //     return next(new ApiError(500, 'Error during registering user from draft!'));
-  //   }
-  // }
+  const deletedDraft = await Draft.findByIdAndDelete(draftId);
 
-  // res.status(201).json(new ApiResponse({ character }, 'Character created successfully.'));
+  if (deletedDraft) {
+    await User.findByIdAndUpdate(
+      character.creator,
+      {
+        $pull: { drafts: draftId },
+      },
+      { new: true }
+    );
+  }
+
+  res.status(201).json(new ApiResponse({ character }, 'Character published successfully.'));
+});
+
+// *************************************************************
+// DELETE DRAFT
+// *************************************************************
+
+export const deleteDraft = asyncHandler(async function (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) {
+  const verifiedUser = req.user;
+
+  if (!verifiedUser) {
+    return next(new ApiError(401, 'Unauthorized request denied! Please login first.'));
+  }
+
+  const { draftId } = req.params;
+
+  const draft = await Draft.findById(draftId).select('+avatarId +musicId');
+
+  if (!draft) {
+    return next(new ApiError(404, 'Draft does no longer exist!'));
+  }
+
+  if (verifiedUser.role === 'user' && !verifiedUser._id.equals(draft.creator)) {
+    return next(new ApiError(400, 'You are not allowed delete a draft not owned by you!'));
+  }
+
+  const characterImage = await Image.findById(draft.characterImage).select('+imageId');
+
+  if (!characterImage) {
+    return next(new ApiError(404, 'Failed to delete character image!'));
+  }
+
+  if (characterImage.usedPrompt === 'Direct Upload') {
+    const imageDeleteResult = await deleteFromCloudinary(
+      characterImage.imageId,
+      'image',
+      cloudinary
+    );
+
+    if (!imageDeleteResult || !['ok', 'not found'].includes(imageDeleteResult.result)) {
+      return next(
+        new ApiError(500, 'Failed to delete character image due to internal server error!')
+      );
+    }
+  }
+
+  if (draft.avatarId) {
+    const avatarDeleteResult = await deleteFromCloudinary(draft.avatarId, 'image', cloudinary);
+
+    if (!avatarDeleteResult || !['ok', 'not found'].includes(avatarDeleteResult.result)) {
+      return next(new ApiError(500, 'Failed to delete avatar due to internal server error!'));
+    }
+  }
+
+  if (draft.musicId) {
+    const musicDeleteResult = await deleteFromCloudinary(draft.musicId, 'video', cloudinary);
+
+    if (!musicDeleteResult || !['ok', 'not found'].includes(musicDeleteResult.result)) {
+      return next(new ApiError(500, 'Failed to delete music due to internal server error!'));
+    }
+  }
+
+  const result = await runInTransaction(async session => {
+    const deletedDraft = await Character.findByIdAndDelete(draft._id, { session });
+
+    if (characterImage.usedPrompt === 'Direct Upload') {
+      const deletedImageDocument = await Image.findByIdAndDelete(characterImage._id, { session });
+
+      if (!deletedImageDocument) {
+        throw new Error('Failed to delete documents!');
+      }
+    }
+
+    const updatedCreator = await User.findByIdAndUpdate(
+      draft.creator,
+      {
+        $pull: {
+          drafts: draft._id,
+        },
+      },
+      { new: true, session }
+    );
+
+    if (
+      !deletedDraft ||
+      !updatedCreator ||
+      updatedCreator.drafts.some(id => id.equals(draft._id))
+    ) {
+      throw new Error('Failed to delete documents!');
+    }
+  });
+
+  if (result === 'error') {
+    return next(new ApiError(500, 'Failed to delete due to internal server error!'));
+  }
+
+  res.status(200).json(new ApiResponse(null, 'Draft deleted successfully.'));
+});
+
+// *************************************************************
+// DELETE DRAFT MEDIA
+// *************************************************************
+
+export const deleteDraftMedia = asyncHandler(async function (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) {
+  const verifiedUser = req.user;
+
+  if (!verifiedUser) {
+    return next(new ApiError(401, 'Unauthorized request denied!'));
+  }
+
+  const { data, error } = removeMediaSchema.safeParse(req.query);
+
+  if (error) {
+    return next(new ApiError(400, error.issues[0].message));
+  }
+
+  const { draftId, target } = data;
+
+  if (!draftId) {
+    return next(new ApiError(400, 'Draft id is required!'));
+  }
+
+  const draft = await Draft.findById(draftId).select('+avatarId +musicId');
+
+  if (!draft) {
+    return next(new ApiError(404, 'Draft does not exist!'));
+  }
+
+  if (verifiedUser.role === 'user' && !verifiedUser._id.equals(draft.creator)) {
+    return next(
+      new ApiError(400, 'You are not allowed to delete media of drafts not owned by you!')
+    );
+  }
+
+  if (target === 'avatar') {
+    if (!draft.avatarId) {
+      return next(new ApiError(400, 'You have no avatar image to remove!'));
+    }
+
+    const deleteResult = await deleteFromCloudinary(draft.avatarId, 'image', cloudinary);
+
+    if (!deleteResult || !['ok', 'not found'].includes(deleteResult.result)) {
+      return next(new ApiError(500, 'Failed to delete avatar image!'));
+    }
+
+    const updatedDraft = await Draft.findByIdAndUpdate(
+      draft._id,
+      {
+        $set: { characterAvatar: '', avatarId: '' },
+      },
+      { new: true }
+    );
+
+    if (!updatedDraft || updatedDraft.characterAvatar || updatedDraft.avatarId) {
+      return next(new ApiError(500, 'Failed to remove draft avatar due to internal server error!'));
+    }
+  }
+
+  if (target === 'music') {
+    if (!draft.musicId) {
+      return next(new ApiError(400, 'You have no music to remove!'));
+    }
+
+    const deleteResult = await deleteFromCloudinary(draft.musicId, 'video', cloudinary);
+
+    if (!deleteResult || !['ok', 'not found'].includes(deleteResult.result)) {
+      return next(new ApiError(500, 'Failed to delete the draft music!'));
+    }
+
+    const updatedDraft = await Draft.findByIdAndUpdate(
+      draft._id,
+      {
+        $set: { music: '', musicId: '' },
+      },
+      { new: true }
+    );
+
+    if (!updatedDraft || updatedDraft.music || updatedDraft.musicId) {
+      return next(new ApiError(500, 'Failed to remove draft music due to internal server error!'));
+    }
+  }
+
+  res.status(200).json(new ApiResponse(null, `You have successfully removed ${target}.`));
 });
