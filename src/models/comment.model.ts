@@ -7,6 +7,7 @@ const commentSchema = new mongoose.Schema<CommentDocument>(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Character',
       required: true,
+      index: true,
     },
     commenter: {
       type: mongoose.Schema.Types.ObjectId,
@@ -17,23 +18,23 @@ const commentSchema = new mongoose.Schema<CommentDocument>(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Comment',
       default: null,
+      index: true,
     },
     text: {
       type: String,
-      maxlength: 200,
+      maxlength: 800,
     },
     image: {
       type: String,
     },
     imageId: {
       type: String,
+      select: false,
     },
-    replies: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Comment',
-      },
-    ],
+    replies: {
+      type: Number,
+      default: 0,
+    },
     likesCount: {
       type: Number,
       default: 0,
@@ -53,6 +54,8 @@ const commentSchema = new mongoose.Schema<CommentDocument>(
   },
   { timestamps: true }
 );
+
+commentSchema.index({ likesCount: -1, createdAt: -1 });
 
 const Comment = mongoose.model<CommentDocument>('Comment', commentSchema);
 

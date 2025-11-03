@@ -1,9 +1,9 @@
 import { Types } from 'mongoose';
-import { Notification, NotificationReceiver } from '../types/types';
+import { Notification, NotificationReceiver, NotificationType } from '../types/types';
 import User from '../models/user.model';
 
 const createNotification = async function (
-  type: 'subscribe' | 'communicate' | 'comment' | 'follow' | 'new',
+  type: NotificationType,
   emitter: Types.ObjectId,
   receiver?: NotificationReceiver
 ) {
@@ -32,7 +32,7 @@ const createNotification = async function (
           $push: {
             notifications: {
               $each: [notification],
-              $slice: -50,
+              $slice: -30,
             },
           },
         },
@@ -52,7 +52,7 @@ const createNotification = async function (
           $push: {
             notifications: {
               $each: [notification],
-              $slice: -50,
+              $slice: -30,
             },
           },
         }

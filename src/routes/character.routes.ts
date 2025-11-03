@@ -16,10 +16,14 @@ import {
   getCharacters,
   getPossibleReplies,
   getUserCreations,
+  reportChaaracter,
+  searchCharacters,
   setReminder,
 } from '../controllers/character/character.controllers';
 
 const router = Router();
+
+router.route('/search').get(searchCharacters);
 
 router.route('/get-characters').get(softAuthChecker, getCharacters);
 
@@ -65,5 +69,7 @@ router.route('/drop/:characterId').delete(verifyAuth, dropCharacter);
 router.route('/remind-me').post(verifyAuth, checkEmailVerification, setReminder);
 
 router.route('/cancel-reminders/:characterId').delete(verifyAuth, cancelAllReminders);
+
+router.route('/report').post(verifyAuth, reportChaaracter);
 
 export default router;

@@ -42,7 +42,7 @@ Stay connected with your AI companion 💚
               <p style="font-size:15px;margin:12px 0;color:#444;">
                 ${characterName} wanted to remind you:
               </p>
-              <blockquote style="font-size:18px;font-style:italic;color:#37b24d;margin:16px auto;padding:12px 16px;border-left:4px solid #37b24d;background-color:#f9fafb;border-radius:4px;max-width:280px;">
+              <blockquote style="font-size:18px;font-style:italic;color:#51cf66;margin:16px auto;padding:12px 16px;border-left:4px solid #37b24d;background-color:#f9fafb;border-radius:4px;max-width:280px;">
                 “${message}”
               </blockquote>
               <p style="font-size:14px;color:#666;margin-top:20px;">

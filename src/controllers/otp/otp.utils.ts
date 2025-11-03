@@ -9,7 +9,7 @@ import { SuccessResult, UserDocument } from '../../types/types';
 const capitals = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 const smalls = 'abcdefghijklmnopqrstuvwxyz';
 const numbers = '0123456789';
-const allChars = [...capitals, ...smalls, ...numbers];
+export const allChars = [...capitals, ...smalls, ...numbers];
 
 export const randomOTPGenerator = function (): string {
   return Math.floor(100000 + Math.random() * 900000).toString();

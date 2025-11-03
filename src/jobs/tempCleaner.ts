@@ -1,6 +1,6 @@
 import fs from 'fs/promises';
 import path from 'path';
-import { TEMPFILE_MAX_AGE } from '../constants';
+import { TEMP_CLEANUP_INTERVAL, TEMPFILE_MAX_AGE } from '../constants';
 import logger from '../utils/logger';
 
 const TEMP_DIR = path.join(process.cwd(), 'public', 'temp');
@@ -23,6 +23,14 @@ const cleanTempFolder = async function (): Promise<void> {
   } catch (error) {
     logger.error(`FILE CLEANER: Error while cleaning temp folder: ${error}`);
   }
+};
+
+export const initTempCleaner = async function (): Promise<void> {
+  logger.info('Temp folder is being scanned for any old residual files.');
+  await cleanTempFolder();
+  setInterval(async () => {
+    await cleanTempFolder();
+  }, TEMP_CLEANUP_INTERVAL);
 };
 
 export default cleanTempFolder;

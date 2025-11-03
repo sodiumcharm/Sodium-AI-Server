@@ -40,7 +40,7 @@ export type CloudinaryDestroyResult = {
 
 export type ImageStyle = 'realistic' | 'anime' | 'fantasy' | 'horror';
 
-export type NotificationType = 'subscribe' | 'communicate' | 'comment' | 'follow' | 'new';
+export type NotificationType = 'subscribe' | 'communicate' | 'comment' | 'reply' | 'follow' | 'new';
 
 export type Notification = {
   notificationType: NotificationType;
@@ -254,8 +254,8 @@ export interface CharacterDocument extends Document {
   followers: Types.ObjectId[];
   communicatorCount: number;
   communicators: Types.ObjectId[];
-  comments: Types.ObjectId[];
   isApproved: boolean;
+  active: boolean;
   relationship: string;
   responseStyle: ResponseStyle;
   characterAvatar?: string;
@@ -273,7 +273,6 @@ export interface CharacterDocument extends Document {
   llmModel: LlmModel;
   tags?: string[];
   visibility: 'public' | 'private';
-  reports: Types.ObjectId[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -314,6 +313,7 @@ export type CharacterEditData = {
   avatarId?: string;
   characterImage?: string;
   imageId?: string;
+  active?: boolean;
   personality?: string;
   mbti?: MbtiType;
   enneagram?: EnneagramType;
@@ -416,7 +416,7 @@ export interface CommentDocument extends Document {
   text?: string;
   image?: string;
   imageId?: string;
-  replies: Types.ObjectId[];
+  replies: number;
   likesCount: number;
   likes: Types.ObjectId[];
   reports: Types.ObjectId[];
@@ -481,8 +481,24 @@ export interface PersonalityResultDocument extends Document {
 export interface MeritDocument extends Document {
   _id: Types.ObjectId;
   user: Types.ObjectId;
-  meritContributors: Types.ObjectId[];
   reports: Types.ObjectId[];
+}
+
+export type ReportReasons = {
+  offensive: number;
+  misinformation: number;
+  impersonation: number;
+  nsfw: number;
+  malicious: number;
+  unsafePersonality: number;
+};
+
+export interface CharacterReportDocument extends Document {
+  _id: Types.ObjectId;
+  character: Types.ObjectId;
+  disapprovalCount: number;
+  reports: Types.ObjectId[];
+  reasons: ReportReasons;
 }
 
 export type ImagePrompt = {
@@ -573,3 +589,12 @@ export interface CreateReminder extends JobAttributesData {
   userEmail: string;
   message: string;
 }
+
+export type CommentData = {
+  character: string | Types.ObjectId;
+  commenter: Types.ObjectId | string;
+  parentComment: Types.ObjectId | string | null;
+  text?: string;
+  image: string;
+  imageId: string;
+};

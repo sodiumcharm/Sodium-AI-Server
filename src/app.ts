@@ -15,6 +15,7 @@ import characterRouter from './routes/character.routes';
 import draftRouter from './routes/draft.routes';
 import generatorRouter from './routes/generator.routes';
 import assessmentRouter from './routes/assessment.routes';
+import commentRouter from './routes/comment.routes';
 import globalErrorHandler from './error/errorHandler';
 
 const app: Application = express();
@@ -52,6 +53,8 @@ app.use(`${API_URL}/drafts`, draftRouter);
 app.use(`${API_URL}/generators`, generatorRouter);
 
 app.use(`${API_URL}/analyze`, assessmentRouter);
+
+app.use(`${API_URL}/comments`, commentRouter);
 
 app.use(globalErrorHandler);
 

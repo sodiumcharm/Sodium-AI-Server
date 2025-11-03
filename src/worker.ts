@@ -1,9 +1,5 @@
-import cleanTempFolder from './jobs/tempCleaner';
-import { TEMP_CLEANUP_INTERVAL } from './constants';
+import { initTempCleaner } from './jobs/tempCleaner';
 
 (async function runWorker(): Promise<void> {
-  await cleanTempFolder();
-  setInterval(async () => {
-    await cleanTempFolder();
-  }, TEMP_CLEANUP_INTERVAL);
+  await initTempCleaner();
 })();

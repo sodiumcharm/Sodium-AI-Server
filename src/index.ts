@@ -5,8 +5,7 @@ import app from './app';
 import corsOptions from './config/cors';
 import logger from './utils/logger';
 import { connectDB, showDBConnectionStatus, disconnectDB } from './services/mongoose';
-import cleanTempFolder from './jobs/tempCleaner';
-import { TEMP_CLEANUP_INTERVAL } from './constants';
+import { initTempCleaner } from './jobs/tempCleaner';
 import { initSockets } from './websocket/socket';
 import agenda from './jobs/agenda';
 
@@ -57,17 +56,10 @@ connectDB()
       logger.info(`Server is running on port ${config.PORT}`);
       await agenda.start();
       logger.info('Agenda started and is ready to process jobs.');
+      await initTempCleaner();
     });
   })
   .catch(error => {
     logger.error(`MongoDB Connection Failure: ${error}`);
     process.exit(1);
   });
-
-// Auto-cleanup of old residual files from temp folder
-(async function (): Promise<void> {
-  await cleanTempFolder();
-  setInterval(async () => {
-    await cleanTempFolder();
-  }, TEMP_CLEANUP_INTERVAL);
-})();

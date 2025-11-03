@@ -48,16 +48,14 @@ const characterSchema = new mongoose.Schema<CharacterDocument>(
         ref: 'User',
       },
     ],
-    comments: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Comment',
-      },
-    ],
     isApproved: {
       type: Boolean,
-      required: true,
-      default: false,
+      default: true,
+      index: true,
+    },
+    active: {
+      type: Boolean,
+      default: true,
       index: true,
     },
     relationship: {
@@ -194,15 +192,11 @@ const characterSchema = new mongoose.Schema<CharacterDocument>(
       enum: ['public', 'private'],
       index: true,
     },
-    reports: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
-      },
-    ],
   },
   { timestamps: true }
 );
+
+characterSchema.index({ name: 'text' });
 
 const Character = mongoose.model<CharacterDocument>('Character', characterSchema);
 

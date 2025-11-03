@@ -14,7 +14,6 @@ import generateLoginAttemptEmail from '../../templates/loginAttempt.mail';
 import { createAndSendOTP, verifyOTP } from '../otp/otp.utils';
 import { otpVerificationSchema } from '../../validators/otp.validators';
 import { generateTokens } from './auth.utils';
-import UserMerit from '../../models/merit.model';
 
 // *************************************************************
 // REGISTER USER
@@ -85,14 +84,6 @@ export const registerUser = asyncHandler(async function (
   });
 
   if (!user) {
-    return next(new ApiError(500, 'Sign up failed! Please try again.'));
-  }
-
-  const userMeritDoc = await UserMerit.create({
-    user: user._id,
-  });
-
-  if (!userMeritDoc) {
     return next(new ApiError(500, 'Sign up failed! Please try again.'));
   }
 

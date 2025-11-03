@@ -6,11 +6,13 @@ import {
   CharacterData,
   CharacterDocument,
   CharacterEditData,
+  CharacterReportDocument,
   ChatData,
-  DraftDocument,
   ImageDocument,
   MemoryDocument,
   MessageDocument,
+  ReportReasons,
+  UserDocument,
 } from '../../types/types';
 import ApiError from '../../utils/apiError';
 import ApiResponse from '../../utils/apiResponse';
@@ -21,23 +23,109 @@ import contentModerator from '../../moderator/contentModerator';
 import createNotification from '../../notification/notification';
 import {
   characterCommunicationSchema,
+  characterReportSchema,
   createCharacterSchema,
   editCharacterSchema,
   getCharactersOptionSchema,
   getUserCreationsSchema,
   reminderSchema,
   removeMediaSchema,
+  searchCharactersSchema,
 } from '../../validators/character.validators';
 import Image from '../../models/image.model';
 import Memory from '../../models/memory.model';
 import { communicate, getReplyAdvices, updateContextMemory } from './character.utils';
-import { MODEL_MEMORY } from '../../constants';
+import {
+  CHARACTER_DISABLE_THRESHOLD,
+  CHARACTER_DISAPPROVAL_THRESHOLD,
+  MODEL_MEMORY,
+} from '../../constants';
 import { runInTransaction } from '../../services/mongoose';
 import { numericStringSchema, objectIdSchema } from '../../validators/general.validators';
 import genAI from '../../llm/gemini/gemini';
 import openAI from '../../llm/openAI/openAI';
-import Draft from '../../models/draft.model';
 import agenda from '../../jobs/agenda';
+import CharacterReport from '../../models/characterReport.model';
+import generateCharacterReportEmail from '../../templates/report.mail';
+import sendMail from '../../config/nodemailer';
+
+// *************************************************************
+// SEARCH CHARACTERS
+// *************************************************************
+
+export const searchCharacters = asyncHandler(async function (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) {
+  if (!req.query) {
+    return next(new ApiError(400, 'Empty Request Query: Please provide search fields!'));
+  }
+
+  const { data, error } = searchCharactersSchema.safeParse(req.query);
+
+  if (error) {
+    return next(new ApiError(400, error.issues[0].message));
+  }
+
+  const { query, page } = data;
+
+  const limit = 20;
+  const skip = (page - 1) * limit;
+
+  const filter = {
+    $text: { $search: query },
+    visibility: 'public',
+  };
+
+  let [results, totalCount] = await Promise.all([
+    Character.find(filter)
+      .select('name avatarImage characterImage creator')
+      .populate([
+        { path: 'characterImage', select: 'image' },
+        { path: 'creator', select: 'fullname profileImage' },
+      ])
+      .skip(skip)
+      .limit(limit),
+    Character.countDocuments(filter),
+  ]);
+
+  if (!results) {
+    return next(new ApiError(500, 'Error while searching characters!'));
+  }
+
+  if (results.length === 0) {
+    const fallbackFilter = {
+      name: { $regex: query, $options: 'i' },
+      visibility: 'public',
+    };
+
+    [results, totalCount] = await Promise.all([
+      Character.find(fallbackFilter)
+        .select('name avatarImage characterImage creator')
+        .populate([
+          { path: 'characterImage', select: 'image' },
+          { path: 'creator', select: 'fullname profileImage' },
+        ])
+        .skip(skip)
+        .limit(limit),
+      Character.countDocuments(fallbackFilter),
+    ]);
+
+    if (!results) {
+      return next(new ApiError(500, 'Error while searching characters!'));
+    }
+  }
+
+  res.status(200).json(
+    new ApiResponse({
+      characters: results,
+      currentPage: page,
+      totalCount: totalCount ?? null,
+      hasMore: skip + results.length < totalCount,
+    })
+  );
+});
 
 // *************************************************************
 // GET CHARACTERS
@@ -60,16 +148,17 @@ export const getCharacters = asyncHandler(async function (
 
   let result: CharacterDocument[] | null = null;
   let totalCount: number = 0;
-  const selectionFields = 'name characterImage avatarImage creator';
-  const verifiedUserFields = 'name characterImage avatarImage description';
+  const selectionFields = 'name characterImage avatarImage communicatorCount creator';
+  const verifiedUserFields = 'name characterImage avatarImage communicatorCount description';
 
   if (incomingOption === 'random') {
     const aggregateData = await Character.aggregate([
-      { $match: { isApproved: true, visibility: 'public' } },
+      { $match: { isApproved: true, active: true, visibility: 'public' } },
       { $sample: { size: 15 } },
       {
         $project: {
           isApproved: 0,
+          active: 0,
           followers: 0,
           communicators: 0,
           comments: 0,
@@ -101,7 +190,7 @@ export const getCharacters = asyncHandler(async function (
     const limit = 20;
     const skip = (currentPage - 1) * limit;
 
-    const generalQuery = { isApproved: true, visibility: 'public' };
+    const generalQuery = { isApproved: true, active: true, visibility: 'public' };
     const tagQuery = { ...generalQuery, tags: incomingOption };
 
     if (incomingOption === 'all') {
@@ -209,7 +298,7 @@ export const getCharacters = asyncHandler(async function (
       new ApiResponse({
         characters: result,
         currentPage,
-        totalCount,
+        totalCount: totalCount ?? null,
         hasMore: skip + result.length < totalCount,
       })
     );
@@ -248,11 +337,11 @@ export const getCharacterInfo = asyncHandler(async function (
     (verifiedUser.role === 'user' && !verifiedUser._id.equals(character.creator))
   ) {
     characterInfo = await Character.findById(characterId).select(
-      '-followers -communicators -comments -isApproved -relationship -responseStyle -personality -visibility -reports'
+      '-followers -communicators -isApproved -active -relationship -responseStyle -personality -visibility'
     );
   } else {
     characterInfo = await Character.findById(characterId).select(
-      '-followers -communicators -comments -isApproved -reports'
+      '-followers -communicators -isApproved -active'
     );
   }
 
@@ -295,7 +384,7 @@ export const getUserCreations = asyncHandler(async function (
       isApproved: true,
       visibility: 'public',
     })
-      .select('name characterImage characterAvatar creator')
+      .select('name characterImage characterAvatar communicatorCount creator')
       .skip(skip)
       .limit(limit),
     Character.countDocuments({
@@ -313,7 +402,7 @@ export const getUserCreations = asyncHandler(async function (
     new ApiResponse({
       characters,
       currentPage: page,
-      totalCount: totalCount || null,
+      totalCount: totalCount ?? null,
       hasMore: skip + characters.length < totalCount,
     })
   );
@@ -470,7 +559,6 @@ export const createCharacter = asyncHandler(async function (
   characterData.avatarId = characterAvatarUploadResult?.public_id || '';
   characterData.music = musicUploadResult?.secure_url || '';
   characterData.musicId = musicUploadResult?.public_id || '';
-  characterData.isApproved = true;
   if (characterData.tags) characterData.tags = JSON.parse(characterData.tags);
 
   const character = await Character.create(characterData);
@@ -542,6 +630,10 @@ export const communicateCharacter = asyncHandler(async function (
 
   if (!character || !character.isApproved) {
     return next(new ApiError(404, 'Character does not exist or is not approved!'));
+  }
+
+  if (!character.active) {
+    return next(new ApiError(400, 'Character is disabled due to violation of rules!'));
   }
 
   if (
@@ -719,6 +811,10 @@ export const followCharacter = asyncHandler(async function (
 
   if (!character.isApproved) {
     return next(new ApiError(400, 'Character is flagged as unsafe!'));
+  }
+
+  if (!character.active) {
+    return next(new ApiError(400, 'Character is disabled due to violation of rules!'));
   }
 
   if (character.creator.equals(verifiedUser._id)) {
@@ -917,6 +1013,10 @@ export const editCharacter = asyncHandler(async function (
     return next(new ApiError(404, 'Character does not exist!'));
   }
 
+  if (!character.active) {
+    return next(new ApiError(400, 'Character is disabled due to violation of rules!'));
+  }
+
   if (verifiedUser.role === 'user' && !verifiedUser._id.equals(character.creator)) {
     return next(new ApiError(400, 'You are not allowed to edit characters not owned by you!'));
   }
@@ -938,6 +1038,38 @@ export const editCharacter = asyncHandler(async function (
           `This image is being already used by one of your character! Please use another image.`
         )
       );
+    }
+  }
+
+  if (editData.name && editData.name !== character.name) {
+    const isSafeName = await contentModerator(editData.name);
+
+    if (!isSafeName) {
+      return next(new ApiError(400, 'Name contains inappropriate content!'));
+    }
+  }
+
+  if (editData.description && editData.description !== character.description) {
+    const isSafeDescription = await contentModerator(editData.description);
+
+    if (!isSafeDescription) {
+      return next(new ApiError(400, 'Description contains inappropriate content!'));
+    }
+  }
+
+  if (editData.personality && editData.personality !== character.personality) {
+    const isSafePersonalty = await contentModerator(editData.personality);
+
+    if (!isSafePersonalty) {
+      return next(new ApiError(400, 'Personality contains inappropriate content!'));
+    }
+  }
+
+  if (editData.opening && editData.opening !== character.opening) {
+    const isSafeOpening = await contentModerator(editData.opening);
+
+    if (!isSafeOpening) {
+      return next(new ApiError(400, 'Opening contains inappropriate content!'));
     }
   }
 
@@ -1077,6 +1209,8 @@ export const editCharacter = asyncHandler(async function (
   delete editData.characterId;
 
   if (editData.tags) editData.tags = JSON.parse(editData.tags);
+
+  editData.active = true;
 
   const result = await runInTransaction(async session => {
     const updatedCharacter = await Character.findByIdAndUpdate(
@@ -1370,6 +1504,10 @@ export const getPossibleReplies = asyncHandler(async function (
     return next(new ApiError(404, 'Character does not exist!'));
   }
 
+  if (!character.active) {
+    return next(new ApiError(400, 'Character is disabled due to violation of rules!'));
+  }
+
   if (
     verifiedUser.role === 'user' &&
     !verifiedUser.isPaid &&
@@ -1436,6 +1574,14 @@ export const setReminder = asyncHandler(async function (
     return next(new ApiError(404, 'Character does no longer exist!'));
   }
 
+  if (!character.isApproved) {
+    return next(new ApiError(400, 'Character is flagged as unsafe!'));
+  }
+
+  if (!character.active) {
+    return next(new ApiError(400, 'Character is disabled due to violation of rules!'));
+  }
+
   if (!memory) {
     return next(
       new ApiError(
@@ -1464,7 +1610,7 @@ export const setReminder = asyncHandler(async function (
   });
 
   const chatData: ChatData = {
-    text: `User has set a reminder with you on ${humanTime}. User sent reminder text: ${message}. You have to reply based on the user sent reminder text, your personality and remind the user for the meetup. Your response should feel like a personal message directly from you - not a notification or system message. Response should be 200-300 words long.`,
+    text: `User has set a reminder with you on ${humanTime}. User sent reminder text: ${message}. It is already ${humanTime} now, and user still did not show up. You have to reply based on the user sent reminder text, your personality and remind the user for the planned schedule. Your response should feel like a personal message directly from you - not a notification or system message. Response should be 200-300 words long.`,
     llmModel: character.llmModel,
     characterName: character.name,
     gender: character.gender,
@@ -1557,4 +1703,133 @@ export const cancelAllReminders = asyncHandler(async function (
   });
 
   res.status(200).json(new ApiResponse(null, 'All reminders were cleared successfully.'));
+});
+
+// *************************************************************
+// REPORT CHARACTER
+// *************************************************************
+
+export const reportChaaracter = asyncHandler(async function (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) {
+  if (!req.body) {
+    return next(
+      new ApiError(400, 'Empty or invalid input type was provided for character report!')
+    );
+  }
+
+  const verifiedUser = req.user;
+
+  if (!verifiedUser) {
+    return next(new ApiError(401, 'Unauthorized request denied!'));
+  }
+
+  const { data, error } = characterReportSchema.safeParse(req.body);
+
+  if (error) {
+    return next(new ApiError(400, error.issues[0].message));
+  }
+
+  const { characterId, reason } = data;
+
+  const character = await Character.findById(characterId).select('+imageId').populate<{
+    creator: UserDocument;
+  }>('creator', 'fullname email');
+
+  if (!character) {
+    return next(new ApiError(404, 'Character does not exist!'));
+  }
+
+  const existingReport = await CharacterReport.findOne({ character: characterId });
+
+  let report: CharacterReportDocument | null = null;
+
+  if (!existingReport) {
+    const reasonObj: ReportReasons = {
+      offensive: 0,
+      misinformation: 0,
+      impersonation: 0,
+      nsfw: 0,
+      malicious: 0,
+      unsafePersonality: 0,
+    };
+
+    reasonObj[reason]++;
+
+    report = await CharacterReport.create({
+      character: characterId,
+      disapprovalCount: 0,
+      reports: [verifiedUser._id],
+      reasons: reasonObj,
+    });
+  } else {
+    if (existingReport.reports.some(id => id.equals(verifiedUser._id))) {
+      return next(new ApiError(404, 'You have already reported this character!'));
+    }
+
+    report = await CharacterReport.findByIdAndUpdate(
+      existingReport._id,
+      {
+        $push: {
+          reports: verifiedUser._id,
+        },
+        $inc: {
+          [`reasons.${reason}`]: 1,
+        },
+      },
+      { new: true }
+    );
+  }
+
+  if (!report || !report.reports.some(id => id.equals(verifiedUser._id))) {
+    return next(new ApiError(500, 'Failed to report character!'));
+  }
+
+  res.status(200).json(new ApiResponse(null, 'Character reported successfully.'));
+
+  const { subject, text, html } = generateCharacterReportEmail(
+    character.creator.fullname,
+    character.name,
+    reason
+  );
+
+  try {
+    await sendMail(character.creator.email, subject, text, html);
+
+    if (report.reports.length >= CHARACTER_DISAPPROVAL_THRESHOLD) {
+      const inactivatedCharacter = await Character.findByIdAndUpdate(
+        characterId,
+        {
+          $set: {
+            isApproved: false,
+          },
+        },
+        { new: true }
+      );
+
+      if (inactivatedCharacter && !inactivatedCharacter.isApproved) return;
+
+      const updatedReport = await CharacterReport.findByIdAndUpdate(
+        report._id,
+        {
+          $inc: {
+            disapprovalCount: 1,
+          },
+        },
+        { new: true }
+      );
+
+      if (updatedReport && updatedReport.disapprovalCount >= CHARACTER_DISABLE_THRESHOLD) {
+        await Character.findByIdAndUpdate(character._id, {
+          $set: {
+            active: false,
+          },
+        });
+      }
+    }
+  } catch (error) {
+    return;
+  }
 });

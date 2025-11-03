@@ -11,6 +11,10 @@ import contentModerator from '../../moderator/contentModerator';
 import { numericStringSchema } from '../../validators/general.validators';
 import hfClient from '../../llm/huggingFace/huggingFace';
 
+// *************************************************************
+// GET IMAGES
+// *************************************************************
+
 export const getImages = asyncHandler(async function (
   req: AuthRequest,
   res: Response,
@@ -47,11 +51,15 @@ export const getImages = asyncHandler(async function (
       images,
       currentPage,
       totalPages: Math.ceil(totalCount / limit),
-      totalCount: totalCount || null,
+      totalCount: totalCount ?? null,
       hasMore: skip + images.length < totalCount,
     })
   );
 });
+
+// *************************************************************
+// GENERATE TEXT
+// *************************************************************
 
 export const generateTextContent = asyncHandler(async function (
   req: AuthRequest,
@@ -74,6 +82,10 @@ export const generateTextContent = asyncHandler(async function (
 
   res.status(200).json(new ApiResponse({ content: result }, 'Content generated successfully.'));
 });
+
+// *************************************************************
+// GENERATE IMAGE
+// *************************************************************
 
 export const createImage = asyncHandler(async function (
   req: AuthRequest,
@@ -157,6 +169,10 @@ export const createImage = asyncHandler(async function (
     .status(201)
     .json(new ApiResponse({ generatedImage: imageDoc }, 'Image generation successful.'));
 });
+
+// *************************************************************
+// DELETE IMAGE
+// *************************************************************
 
 export const deleteImage = asyncHandler(async function (
   req: AuthRequest,

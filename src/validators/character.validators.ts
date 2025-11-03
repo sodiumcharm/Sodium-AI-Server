@@ -352,6 +352,18 @@ export const getUserCreationsSchema = z.object({
     .transform(val => Number(val)),
 });
 
+export const searchCharactersSchema = z.object({
+  query: z
+    .string({ error: 'Empty or invalid input type was provided for query!' })
+    .trim()
+    .min(1, { message: 'Search text is required!' })
+    .max(50, { message: 'Maximum allowed search text length is 50!' }),
+  page: z
+    .string({ error: 'Page number is required!' })
+    .regex(/^\d+$/, { message: 'Value must be a number!' })
+    .transform(val => Number(val)),
+});
+
 export const reminderSchema = z.object({
   characterId: z
     .string({ error: 'Empty or invalid input type was provided for character!' })
@@ -364,4 +376,15 @@ export const reminderSchema = z.object({
     .trim()
     .min(1, { message: 'Reminder text is required!' })
     .max(200, { message: 'Character voice must be at most 200 characters long!' }),
+});
+
+export const characterReportSchema = z.object({
+  characterId: z
+    .string({ error: 'Empty or invalid input type was provided for character!' })
+    .trim()
+    .regex(/^[a-f\d]{24}$/i, { message: 'Invalid character id provided!' }),
+  reason: z.enum(
+    ['offensive', 'misinformation', 'impersonation', 'nsfw', 'malicious', 'unsafePersonality'],
+    { message: 'Please provide a valid reason for reporting character!' }
+  ),
 });

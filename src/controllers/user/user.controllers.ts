@@ -37,9 +37,14 @@ export const getMyDetails = asyncHandler(async function (
     return next(new ApiError(401, 'Unauthorized request denied! Please login first.'));
   }
 
-  const user = await User.findById(verifiedUser._id).select(
-    '-password -refreshToken -registeredBy -lastUsernameChanged -usernameCooldown -creations -drafts -communications -reports -__v'
-  );
+  const user = await User.findById(verifiedUser._id)
+    .select(
+      '-password -refreshToken -registeredBy -lastUsernameChanged -usernameCooldown -creations -drafts -communications -__v'
+    )
+    .populate([
+      { path: 'notifications.emitter', select: 'fullname profileImage' },
+      { path: 'notifications.receiverCharacter', select: 'name avatarImage characterImage' },
+    ]);
 
   if (!user) {
     return next(new ApiError(401, 'User does not exist!'));
@@ -60,7 +65,7 @@ export const getUserDetails = asyncHandler(async function (
   const userId = req.params.id;
 
   const user = await User.findById(userId).select(
-    'fullname profileImage profileDescription subscriberCount subscribingCount totalFollowers creationCount'
+    'fullname profileImage profileDescription subscriberCount subscribingCount totalFollowers creationCount personality mbti enneagram attachmentStyle'
   );
 
   if (!user) {

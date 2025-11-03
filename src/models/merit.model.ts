@@ -9,12 +9,6 @@ const userMerit = new mongoose.Schema<MeritDocument>(
       required: true,
       index: true,
     },
-    meritContributors: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
-      },
-    ],
     reports: [
       {
         type: mongoose.Schema.Types.ObjectId,
