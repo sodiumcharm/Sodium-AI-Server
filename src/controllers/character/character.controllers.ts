@@ -48,6 +48,8 @@ import agenda from '../../jobs/agenda';
 import CharacterReport from '../../models/characterReport.model';
 import generateCharacterReportEmail from '../../templates/report.mail';
 import sendMail from '../../config/nodemailer';
+import createSystemNotification from '../../notification/systemNotification';
+import { generateCharacterDisabledEmail } from '../../templates/warning.mail';
 
 // *************************************************************
 // SEARCH CHARACTERS
@@ -229,45 +231,33 @@ export const getCharacters = asyncHandler(async function (
       }
 
       if (incomingOption === 'my-creations') {
-        const populatedUser = await User.findById(verifiedUser._id)
-          .select({ creations: { $slice: [skip, limit] } })
-          .populate<{
-            creations: CharacterDocument[];
-          }>('creations', verifiedUserFields);
-
-        if (!populatedUser) {
-          return next(new ApiError(500, 'Error while loading your creations!'));
-        }
-
-        result = populatedUser.creations;
+        [result, totalCount] = await Promise.all([
+          Character.find({ creator: verifiedUser._id })
+            .skip(skip)
+            .limit(limit)
+            .select(selectionFields),
+          Character.countDocuments({ creator: verifiedUser._id }),
+        ]);
       }
 
       if (incomingOption === 'my-followings') {
-        const populatedUser = await User.findById(verifiedUser._id)
-          .select({ followingCharacters: { $slice: [skip, limit] } })
-          .populate<{
-            followingCharacters: CharacterDocument[];
-          }>('followingCharacters', selectionFields);
-
-        if (!populatedUser) {
-          return next(new ApiError(500, 'Error while loading your following characters!'));
-        }
-
-        result = populatedUser.followingCharacters;
+        [result, totalCount] = await Promise.all([
+          Character.find({ followers: verifiedUser._id })
+            .skip(skip)
+            .limit(limit)
+            .select(selectionFields),
+          Character.countDocuments({ followers: verifiedUser._id }),
+        ]);
       }
 
       if (incomingOption === 'my-communications') {
-        const populatedUser = await User.findById(verifiedUser._id)
-          .select({ communications: { $slice: [skip, limit] } })
-          .populate<{
-            communications: CharacterDocument[];
-          }>('communications', selectionFields);
-
-        if (!populatedUser) {
-          return next(new ApiError(500, 'Error while loading your communications!'));
-        }
-
-        result = populatedUser.communications;
+        [result, totalCount] = await Promise.all([
+          Character.find({ communicators: verifiedUser._id })
+            .skip(skip)
+            .limit(limit)
+            .select(selectionFields),
+          Character.countDocuments({ communicators: verifiedUser._id }),
+        ]);
       }
 
       if (incomingOption === 'my-failbox') {
@@ -349,7 +339,21 @@ export const getCharacterInfo = asyncHandler(async function (
     return next(new ApiError(500, 'Failed to load the character info!'));
   }
 
-  res.status(200).json(new ApiResponse({ character: characterInfo }));
+  let memory: MemoryDocument | null = null;
+  let isFollowing = false;
+
+  if (verifiedUser) {
+    memory = await Memory.findOne({ character: character._id, user: verifiedUser._id });
+    isFollowing = character.followers.some(followerId => followerId.equals(verifiedUser._id));
+  }
+
+  res.status(200).json(
+    new ApiResponse({
+      character: characterInfo,
+      chatHistory: memory?.messages ?? null,
+      isFollowing,
+    })
+  );
 });
 
 // *************************************************************
@@ -385,6 +389,10 @@ export const getUserCreations = asyncHandler(async function (
       visibility: 'public',
     })
       .select('name characterImage characterAvatar communicatorCount creator')
+      .populate([
+        { path: 'creator', select: 'fullname profileImage' },
+        { path: 'characterImage', select: 'image' },
+      ])
       .skip(skip)
       .limit(limit),
     Character.countDocuments({
@@ -437,12 +445,10 @@ export const createCharacter = asyncHandler(async function (
 
   const characterData: CharacterData = data;
 
-  const [isSafeName, isSafeDescription, isSafePersonalty, isSafeOpening] = await Promise.all([
-    contentModerator(characterData.name),
-    contentModerator(characterData.description),
-    contentModerator(characterData.personality),
-    contentModerator(characterData.opening),
-  ]);
+  const isSafeName = await contentModerator(characterData.name);
+  const isSafeDescription = await contentModerator(characterData.description);
+  const isSafePersonalty = await contentModerator(characterData.personality);
+  const isSafeOpening = await contentModerator(characterData.opening);
 
   if (!isSafeName) {
     return next(new ApiError(400, 'Name contains inappropriate content!'));
@@ -571,7 +577,6 @@ export const createCharacter = asyncHandler(async function (
     User.findByIdAndUpdate(
       verifiedUser._id,
       {
-        $addToSet: { creations: character._id },
         $inc: { creationCount: 1 },
       },
       { new: true }
@@ -586,12 +591,7 @@ export const createCharacter = asyncHandler(async function (
     createNotification('new', verifiedUser._id),
   ]);
 
-  if (
-    !updatedUser ||
-    !updatedUser.creations.some(id => id.equals(character._id)) ||
-    !updatedImage ||
-    !updatedImage.usedByCharacter.equals(character._id)
-  ) {
+  if (!updatedUser || !updatedImage || !updatedImage.usedByCharacter.equals(character._id)) {
     return next(new ApiError(500, 'Failed to update user creations!'));
   }
 
@@ -667,40 +667,21 @@ export const communicateCharacter = asyncHandler(async function (
         messages: [openingChat],
       });
 
-      if (
-        !character.communicators.some(id => id.equals(verifiedUser._id)) &&
-        !verifiedUser.communications.some(id => id.equals(character._id))
-      ) {
-        const result = await runInTransaction(async session => {
-          const characterUpdated = await Character.findByIdAndUpdate(
-            characterId,
-            {
-              $addToSet: { communicators: verifiedUser._id },
-              $inc: { communicatorCount: 1 },
-            },
-            { new: true, session }
-          );
+      if (!character.communicators.some(id => id.equals(verifiedUser._id))) {
+        const characterUpdated = await Character.findByIdAndUpdate(
+          characterId,
+          {
+            $addToSet: { communicators: verifiedUser._id },
+            $inc: { communicatorCount: 1 },
+          },
+          { new: true }
+        );
 
-          const userUpdated = await User.findByIdAndUpdate(
-            verifiedUser._id,
-            {
-              $addToSet: { communications: character._id },
-            },
-            { new: true, session }
-          );
-
-          if (
-            !characterUpdated ||
-            !characterUpdated.communicators.some(id => id.equals(verifiedUser._id)) ||
-            !userUpdated ||
-            !userUpdated.communications.some(id => id.equals(character._id))
-          ) {
-            throw new Error('Failed to update character or user!');
-          }
-        });
-
-        if (result === 'error') {
-          return next(new ApiError(500, 'Error during registering communication!'));
+        if (
+          !characterUpdated ||
+          !characterUpdated.communicators.some(id => id.equals(verifiedUser._id))
+        ) {
+          return next(new ApiError(500, 'Failed to update character!'));
         }
 
         if (!character.creator.equals(verifiedUser._id)) {
@@ -823,10 +804,7 @@ export const followCharacter = asyncHandler(async function (
 
   let isFollowed: boolean;
 
-  if (
-    character.followers.some(id => id.equals(verifiedUser._id)) &&
-    verifiedUser.followingCharacters.some(id => id.equals(character._id))
-  ) {
+  if (character.followers.some(id => id.equals(verifiedUser._id))) {
     isFollowed = false;
 
     const result = await runInTransaction(async session => {
@@ -835,14 +813,6 @@ export const followCharacter = asyncHandler(async function (
         {
           $pull: { followers: verifiedUser._id },
           $inc: { followerCount: -1 },
-        },
-        { new: true, session }
-      );
-
-      const userUpdated = await User.findByIdAndUpdate(
-        verifiedUser._id,
-        {
-          $pull: { followingCharacters: character._id },
         },
         { new: true, session }
       );
@@ -858,8 +828,6 @@ export const followCharacter = asyncHandler(async function (
       if (
         !characterUpdated ||
         characterUpdated.followers.some(id => id.equals(verifiedUser._id)) ||
-        !userUpdated ||
-        userUpdated.followingCharacters.some(id => id.equals(character._id)) ||
         !creatorUpdated ||
         creatorUpdated.totalFollowers < 0
       ) {
@@ -883,14 +851,6 @@ export const followCharacter = asyncHandler(async function (
         { new: true, session }
       );
 
-      const userUpdated = await User.findByIdAndUpdate(
-        verifiedUser._id,
-        {
-          $addToSet: { followingCharacters: character._id },
-        },
-        { new: true, session }
-      );
-
       const creatorUpdated = await User.findByIdAndUpdate(
         character.creator,
         {
@@ -902,8 +862,6 @@ export const followCharacter = asyncHandler(async function (
       if (
         !characterUpdated ||
         !characterUpdated.followers.some(id => id.equals(verifiedUser._id)) ||
-        !userUpdated ||
-        !userUpdated.followingCharacters.some(id => id.equals(character._id)) ||
         !creatorUpdated ||
         creatorUpdated.totalFollowers < 0
       ) {
@@ -1439,9 +1397,6 @@ export const dropCharacter = asyncHandler(async function (
     const updatedCreator = await User.findByIdAndUpdate(
       character.creator,
       {
-        $pull: {
-          creations: character._id,
-        },
         $inc: {
           creationCount: -1,
           totalFollowers: -character.followerCount,
@@ -1450,11 +1405,7 @@ export const dropCharacter = asyncHandler(async function (
       { new: true, session }
     );
 
-    if (
-      !deletedCharacterDocument ||
-      !updatedCreator ||
-      updatedCreator.creations.some(id => id.equals(character._id))
-    ) {
+    if (!deletedCharacterDocument || !updatedCreator) {
       throw new Error('Failed to delete documents!');
     }
   });
@@ -1463,20 +1414,7 @@ export const dropCharacter = asyncHandler(async function (
     return next(new ApiError(500, 'Failed to delete due to internal server error!'));
   }
 
-  await Promise.all([
-    Memory.deleteMany({ character: character._id }),
-    User.updateMany(
-      {
-        $or: [{ followingCharacters: character._id }, { communications: character._id }],
-      },
-      {
-        $pull: {
-          followingCharacters: character._id,
-          communications: character._id,
-        },
-      }
-    ),
-  ]);
+  await Memory.deleteMany({ character: character._id });
 
   res.status(200).json(new ApiResponse(null, 'Character deleted successfully.'));
 });
@@ -1827,6 +1765,19 @@ export const reportChaaracter = asyncHandler(async function (
             active: false,
           },
         });
+
+        const { subject, text, html } = generateCharacterDisabledEmail(
+          character.creator.fullname,
+          character.name
+        );
+
+        await Promise.all([
+          await sendMail(character.creator.email, subject, text, html),
+          await createSystemNotification('characterDisabled', {
+            receiverUser: character.creator._id,
+            receiverCharacter: character._id,
+          }),
+        ]);
       }
     }
   } catch (error) {

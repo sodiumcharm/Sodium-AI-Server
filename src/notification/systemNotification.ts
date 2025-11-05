@@ -1,14 +1,11 @@
-import { Types } from 'mongoose';
 import { Notification, NotificationReceiver, NotificationType } from '../types/types';
 import User from '../models/user.model';
 
-const createNotification = async function (
+const createSystemNotification = async function (
   type: NotificationType,
-  emitter: Types.ObjectId,
   receiver?: NotificationReceiver
 ) {
-  if (!emitter) return false;
-  const origin = 'user';
+  const origin = 'system';
 
   try {
     let notification: Notification;
@@ -18,7 +15,6 @@ const createNotification = async function (
         notification = {
           origin,
           notificationType: type,
-          emitter,
           receiverUser: receiver.receiverUser,
           receiverCharacter: receiver.receiverCharacter,
         };
@@ -26,7 +22,6 @@ const createNotification = async function (
         notification = {
           origin,
           notificationType: type,
-          emitter,
           receiverUser: receiver.receiverUser,
         };
       }
@@ -49,11 +44,10 @@ const createNotification = async function (
       notification = {
         origin,
         notificationType: type,
-        emitter,
       };
 
       const notifiedUser = await User.updateMany(
-        { subscribing: emitter },
+        {},
         {
           $push: {
             notifications: {
@@ -73,4 +67,4 @@ const createNotification = async function (
   }
 };
 
-export default createNotification;
+export default createSystemNotification;

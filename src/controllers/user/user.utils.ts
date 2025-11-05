@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import Suspend from '../../models/suspend.model';
 import User from '../../models/user.model';
 import { BAN_THRESHOLD, SUSPEND_DAYS } from '../../constants';
+import createSystemNotification from '../../notification/systemNotification';
 
 export const registerSuspension = async function (
   userId: string | mongoose.Types.ObjectId,
@@ -28,6 +29,8 @@ export const registerSuspension = async function (
       );
 
       if (!suspendedUser || suspendedUser.status !== 'suspended') return false;
+
+      await createSystemNotification('suspension', { receiverUser: newSuspension.user });
     } else {
       const updatedSuspension = await Suspend.findByIdAndUpdate(
         existingSuspension._id,
@@ -55,6 +58,8 @@ export const registerSuspension = async function (
 
       if (!suspendedUser || suspendedUser.status !== 'suspended') return false;
 
+      await createSystemNotification('suspension', { receiverUser: existingSuspension.user });
+
       if (updatedSuspension.suspensionCount >= BAN_THRESHOLD) {
         const bannedUser = await User.findByIdAndUpdate(
           userId,
@@ -65,6 +70,8 @@ export const registerSuspension = async function (
         );
 
         if (!bannedUser || bannedUser.status !== 'banned') return false;
+
+        await createSystemNotification('ban', { receiverUser: existingSuspension.user });
       }
     }
 

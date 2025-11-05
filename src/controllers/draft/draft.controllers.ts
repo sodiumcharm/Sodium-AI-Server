@@ -48,28 +48,53 @@ export const loadDrafts = asyncHandler(async function (
   const limit = 20;
   const skip = (currentPage - 1) * limit;
 
-  const populatedUser = await User.findById(verifiedUser._id)
-    .select({ drafts: { $slice: [skip, limit] } })
-    .populate<{
-      drafts: CharacterDocument[];
-    }>('drafts', 'name characterImage avatarImage description');
+  const [drafts, totalCount] = await Promise.all([
+    Draft.find({ creator: verifiedUser._id })
+      .select('name characterImage avatarImage description')
+      .populate('characterImage', 'image')
+      .skip(skip)
+      .limit(limit),
+    Draft.countDocuments({ creator: verifiedUser._id }),
+  ]);
 
-  if (!populatedUser) {
+  if (!drafts) {
     return next(new ApiError(500, 'Error while loading your drafts!'));
   }
-
-  const drafts = populatedUser.drafts;
-
-  const totalCount = verifiedUser.drafts.length;
 
   return res.status(200).json(
     new ApiResponse({
       drafts,
       currentPage,
-      totalCount,
+      totalCount: totalCount ?? null,
       hasMore: skip + drafts.length < totalCount,
     })
   );
+});
+
+// *************************************************************
+// GET DRAFT DETAIL
+// *************************************************************
+
+export const getDraftInfo = asyncHandler(async function (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) {
+  const verifiedUser = req.user;
+
+  if (!verifiedUser) {
+    return next(new ApiError(401, 'Unauthorized request denied! Please login first.'));
+  }
+
+  const { draftId } = req.params;
+
+  const draft = await Draft.findById(draftId).populate('characterImage', 'image');
+
+  if (!draft) {
+    return next(new ApiError(404, 'Draft does not exist!'));
+  }
+
+  res.status(200).json(new ApiResponse({ draft }));
 });
 
 // *************************************************************
@@ -219,18 +244,6 @@ export const createDraft = asyncHandler(async function (
   const draft = await Draft.create(draftData);
 
   if (!draft) {
-    return next(new ApiError(500, 'Failed to save the draft!'));
-  }
-
-  const updatedUser = await User.findByIdAndUpdate(
-    verifiedUser._id,
-    {
-      $addToSet: { drafts: draft._id },
-    },
-    { new: true }
-  );
-
-  if (!updatedUser || !updatedUser.drafts.some(id => id.equals(draft._id))) {
     return next(new ApiError(500, 'Failed to save the draft!'));
   }
 
@@ -572,7 +585,6 @@ export const publishDraft = asyncHandler(async function (
     User.findByIdAndUpdate(
       character.creator,
       {
-        $addToSet: { creations: character._id },
         $inc: { creationCount: 1 },
       },
       { new: true }
@@ -587,26 +599,11 @@ export const publishDraft = asyncHandler(async function (
     createNotification('new', character.creator),
   ]);
 
-  if (
-    !updatedUser ||
-    !updatedUser.creations.some(id => id.equals(character._id)) ||
-    !updatedImage ||
-    !updatedImage.usedByCharacter.equals(character._id)
-  ) {
+  if (!updatedUser || !updatedImage || !updatedImage.usedByCharacter.equals(character._id)) {
     return next(new ApiError(500, 'Failed to update user creations!'));
   }
 
-  const deletedDraft = await Draft.findByIdAndDelete(draftId);
-
-  if (deletedDraft) {
-    await User.findByIdAndUpdate(
-      character.creator,
-      {
-        $pull: { drafts: draftId },
-      },
-      { new: true }
-    );
-  }
+  await Draft.findByIdAndDelete(draftId);
 
   res.status(201).json(new ApiResponse({ character }, 'Character published successfully.'));
 });
@@ -685,21 +682,7 @@ export const deleteDraft = asyncHandler(async function (
       }
     }
 
-    const updatedCreator = await User.findByIdAndUpdate(
-      draft.creator,
-      {
-        $pull: {
-          drafts: draft._id,
-        },
-      },
-      { new: true, session }
-    );
-
-    if (
-      !deletedDraft ||
-      !updatedCreator ||
-      updatedCreator.drafts.some(id => id.equals(draft._id))
-    ) {
+    if (!deletedDraft) {
       throw new Error('Failed to delete documents!');
     }
   });

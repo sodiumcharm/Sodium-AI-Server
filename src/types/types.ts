@@ -40,11 +40,22 @@ export type CloudinaryDestroyResult = {
 
 export type ImageStyle = 'realistic' | 'anime' | 'fantasy' | 'horror';
 
-export type NotificationType = 'subscribe' | 'communicate' | 'comment' | 'reply' | 'follow' | 'new';
+export type NotificationType =
+  | 'subscribe'
+  | 'communicate'
+  | 'comment'
+  | 'reply'
+  | 'follow'
+  | 'new'
+  | 'suspension'
+  | 'ban'
+  | 'characterDisabled'
+  | 'casual';
 
 export type Notification = {
+  origin: 'user' | 'system';
   notificationType: NotificationType;
-  emitter: Types.ObjectId;
+  emitter?: Types.ObjectId;
   receiverUser?: Types.ObjectId;
   receiverCharacter?: Types.ObjectId;
   createdAt?: Date;
@@ -216,10 +227,6 @@ export interface UserDocument extends Document {
   subscribing: Types.ObjectId[];
   totalFollowers: number;
   creationCount: number;
-  creations: Types.ObjectId[];
-  drafts: Types.ObjectId[];
-  followingCharacters: Types.ObjectId[];
-  communications: Types.ObjectId[];
   createdAt: Date;
   updatedAt: Date;
   notifications: Notification[];

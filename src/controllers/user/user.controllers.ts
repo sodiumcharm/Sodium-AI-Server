@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import bcrypt from 'bcrypt';
 import { addMonths } from 'date-fns';
 import asyncHandler from '../../utils/asyncHandler';
-import { AuthRequest } from '../../types/types';
+import { AuthRequest, MeritDocument } from '../../types/types';
 import ApiError from '../../utils/apiError';
 import User from '../../models/user.model';
 import ApiResponse from '../../utils/apiResponse';
@@ -21,6 +21,9 @@ import { uploadToCloudinary, deleteFromCloudinary, cloudinary } from '../../serv
 import contentModerator from '../../moderator/contentModerator';
 import createNotification from '../../notification/notification';
 import { runInTransaction } from '../../services/mongoose';
+import UserMerit from '../../models/merit.model';
+import { SUSPEND_THRESHOLD } from '../../constants';
+import { registerSuspension } from './user.utils';
 
 // *************************************************************
 // GET USER's OWN DETAILS
@@ -58,10 +61,12 @@ export const getMyDetails = asyncHandler(async function (
 // *************************************************************
 
 export const getUserDetails = asyncHandler(async function (
-  req: Request,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ) {
+  const verifiedUser = req.user;
+
   const userId = req.params.id;
 
   const user = await User.findById(userId).select(
@@ -72,7 +77,15 @@ export const getUserDetails = asyncHandler(async function (
     return next(new ApiError(404, 'User does not exist!'));
   }
 
-  res.status(200).json(new ApiResponse({ user }));
+  let isSubscribed = false;
+  let isSubscribing = false;
+
+  if (verifiedUser) {
+    isSubscribed = user.subscribing.some(id => id.equals(verifiedUser._id));
+    isSubscribing = user.subscribers.some(id => id.equals(verifiedUser._id));
+  }
+
+  res.status(200).json(new ApiResponse({ user, isSubscribed, isSubscribing }));
 });
 
 // *************************************************************
@@ -641,4 +654,69 @@ export const subscribe = asyncHandler(async function (
   res
     .status(200)
     .json(new ApiResponse(null, `${subscribeeUser.username} is successfully ${action}d.`));
+});
+
+// *************************************************************
+// REPORT USER
+// *************************************************************
+
+export const reportUser = asyncHandler(async function (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) {
+  const verifiedUser = req.user;
+
+  if (!verifiedUser) {
+    return next(new ApiError(401, 'Unauthorized request denied!'));
+  }
+
+  const { userId } = req.params;
+
+  const user = await User.findById(userId);
+
+  if (!user) {
+    return next(new ApiError(404, 'User does not exist!'));
+  }
+
+  const existingMerit = await UserMerit.findOne({ user: userId });
+
+  let merit: MeritDocument | null = null;
+
+  if (!existingMerit) {
+    const newMerit = await UserMerit.create({
+      user: userId,
+      reports: [verifiedUser._id],
+    });
+
+    merit = newMerit;
+  } else {
+    if (existingMerit.reports.some(id => id.equals(verifiedUser._id))) {
+      return next(new ApiError(400, 'You have already reported this user!'));
+    }
+
+    const updatedMerit = await UserMerit.findOneAndUpdate(
+      { user: userId },
+      {
+        $addToSet: { reports: verifiedUser._id },
+      },
+      { new: true }
+    );
+
+    merit = updatedMerit;
+  }
+
+  if (!merit || !merit.reports.some(id => id.equals(verifiedUser._id))) {
+    return next(new ApiError(500, 'Failed to register the report!'));
+  }
+
+  res.status(200).json(new ApiResponse(null, 'User was reported successfully.'));
+
+  await User.findByIdAndUpdate(user._id, {
+    $inc: { socialMerit: -5 },
+  });
+
+  if (merit.reports.length >= SUSPEND_THRESHOLD) {
+    await registerSuspension(user._id, 'User was reported by multiple users');
+  }
 });

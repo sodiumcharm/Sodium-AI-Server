@@ -485,20 +485,28 @@ export const reportComment = asyncHandler(async function (
   res.status(200).json(new ApiResponse(null, 'Comment was reported successfully.'));
 
   try {
-    const [merit, _] = await Promise.all([
-      UserMerit.findOneAndUpdate(
+    let existingMerit = await UserMerit.findOne({ user: comment.commenter });
+
+    if (!existingMerit) {
+      existingMerit = await UserMerit.create({
+        user: comment.commenter,
+        reports: [verifiedUser._id],
+      });
+    } else {
+      existingMerit = await UserMerit.findOneAndUpdate(
         { user: comment.commenter },
         {
           $addToSet: { reports: verifiedUser._id },
         },
         { new: true }
-      ),
-      User.findByIdAndUpdate(comment.commenter, {
-        $inc: { socialMerit: -1 },
-      }),
-    ]);
+      );
+    }
 
-    if (merit && merit.reports.length >= SUSPEND_THRESHOLD) {
+    await User.findByIdAndUpdate(comment.commenter, {
+      $inc: { socialMerit: -1 },
+    });
+
+    if (existingMerit && existingMerit.reports.length >= SUSPEND_THRESHOLD) {
       await registerSuspension(comment.commenter, 'User was reported by multiple users');
     }
 

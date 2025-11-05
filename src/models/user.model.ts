@@ -169,42 +169,33 @@ const userSchema = new mongoose.Schema<UserDocument>(
       type: Number,
       default: 0,
     },
-    creations: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Character',
-      },
-    ],
-    drafts: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Draft',
-      },
-    ],
-    followingCharacters: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Character',
-      },
-    ],
-    communications: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Character',
-      },
-    ],
     notifications: [
       {
+        origin: {
+          type: String,
+          required: true,
+          trim: true,
+          enum: ['user', 'system'],
+        },
         notificationType: {
           type: String,
           required: true,
           trim: true,
-          enum: ['subscribe', 'communicate', 'comment', 'follow', 'new'],
+          enum: [
+            'subscribe',
+            'communicate',
+            'comment',
+            'follow',
+            'new',
+            'suspension',
+            'ban',
+            'characterDisabled',
+            'casual',
+          ],
         },
         emitter: {
           type: mongoose.Schema.Types.ObjectId,
           ref: 'User',
-          required: true,
         },
         receiverUser: {
           type: mongoose.Schema.Types.ObjectId,

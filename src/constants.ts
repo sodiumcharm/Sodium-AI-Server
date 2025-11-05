@@ -43,3 +43,10 @@ export const IMAGE_MODELS = {
   fantasy: 'stabilityai/stable-diffusion-xl-base-1.0',
   horror: 'Jonjew/DarkFantasyHorror',
 };
+
+// TEST
+export const TEST_USER_ID: string = '69020b5ee9467cd382b501b6';
+export const TEST_USER_EMAIL: string = 'bhootumr@gmail.com';
+export const TEST_USERNAME: string = 'Testify';
+export const TEST_FULLNAME: string = 'Test User';
+export const TEST_USER_PASSWORD: string = 'Example12345#';

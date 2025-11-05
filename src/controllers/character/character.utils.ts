@@ -189,9 +189,13 @@ export const updateContextMemory = async function (
 
     if (!result) return false;
 
-    await Memory.findByIdAndUpdate(memory._id, {
-      $set: { contextMemory: result },
-    });
+    await Memory.findByIdAndUpdate(
+      memory._id,
+      {
+        $set: { contextMemory: result },
+      },
+      { new: true }
+    );
 
     return true;
   } catch (error) {

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { uploadUserImage } from '../middlewares/multer.middleware';
-import { verifyAuth } from '../middlewares/tokenChecker.middleware';
+import { verifyAuth, softAuthChecker } from '../middlewares/tokenChecker.middleware';
 import { checkEmailVerification } from '../middlewares/emailChecker.middleware';
 import {
   getMyDetails,
@@ -23,7 +23,7 @@ const router = Router();
 
 router.route('/me').get(verifyAuth, getMyDetails);
 
-router.route('/user-info/:id').get(getUserDetails);
+router.route('/user-info/:id').get(softAuthChecker, getUserDetails);
 
 router.route('/load-users').get(verifyAuth, loadUsers);
 

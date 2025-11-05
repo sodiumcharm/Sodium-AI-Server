@@ -7,11 +7,17 @@ import {
   deleteDraft,
   deleteDraftMedia,
   editDraft,
+  getDraftInfo,
+  loadDrafts,
   publishDraft,
 } from '../controllers/draft/draft.controllers';
 import { checkEmailVerification } from '../middlewares/emailChecker.middleware';
 
 const router = Router();
+
+router.route('/load-drafts').get(verifyAuth, loadDrafts);
+
+router.route('/get-info/:draftId').get(verifyAuth, getDraftInfo);
 
 router.route('/create').post(
   verifyAuth,
