@@ -6,7 +6,7 @@ import { AuthRequest } from '../types/types';
 import { NextFunction, Response } from 'express';
 import ApiError from '../utils/apiError';
 
-export const processProfileImage = asyncHandler(async function (
+export const processImage = asyncHandler(async function (
   req: AuthRequest,
   res: Response,
   next: NextFunction

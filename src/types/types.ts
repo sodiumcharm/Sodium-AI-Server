@@ -55,6 +55,8 @@ export type NotificationType =
 export type Notification = {
   origin: 'user' | 'system';
   notificationType: NotificationType;
+  text?: string;
+  image?: string;
   emitter?: Types.ObjectId;
   receiverUser?: Types.ObjectId;
   receiverCharacter?: Types.ObjectId;
@@ -595,6 +597,11 @@ export interface CreateReminder extends JobAttributesData {
   characterId: string;
   userEmail: string;
   message: string;
+}
+
+export interface ScheduleNotification extends JobAttributesData {
+  text: string;
+  image: string;
 }
 
 export type CommentData = {

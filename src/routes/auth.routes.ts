@@ -2,7 +2,7 @@ import { Router } from 'express';
 import passport from 'passport';
 import { uploadUserImage } from '../middlewares/multer.middleware';
 import { imageCheckerAI } from '../middlewares/imageChecker.middleware';
-import { processProfileImage } from '../middlewares/imageProcessor.middleware';
+import { processImage } from '../middlewares/imageProcessor.middleware';
 import {
   registerUser,
   signInUser,
@@ -22,7 +22,7 @@ router
   .post(
     authLimiter,
     uploadUserImage.single('profileImage'),
-    processProfileImage,
+    processImage,
     imageCheckerAI,
     registerUser
   );

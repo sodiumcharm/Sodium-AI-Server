@@ -15,9 +15,10 @@ import {
   setDescription,
   subscribe,
   loadUsers,
+  reportUser,
 } from '../controllers/user/user.controllers';
 import { imageCheckerAI } from '../middlewares/imageChecker.middleware';
-import { processProfileImage } from '../middlewares/imageProcessor.middleware';
+import { processImage } from '../middlewares/imageProcessor.middleware';
 
 const router = Router();
 
@@ -43,7 +44,7 @@ router
     verifyAuth,
     checkEmailVerification,
     uploadUserImage.single('profileImage'),
-    processProfileImage,
+    processImage,
     imageCheckerAI,
     changeProfileImage
   );
@@ -53,5 +54,7 @@ router.route('/set-description').patch(verifyAuth, checkEmailVerification, setDe
 router.route('/set-personality').patch(verifyAuth, checkEmailVerification, setPersonality);
 
 router.route('/subscribe/:id').patch(verifyAuth, subscribe);
+
+router.route('/report/:userId').post(verifyAuth, reportUser);
 
 export default router;

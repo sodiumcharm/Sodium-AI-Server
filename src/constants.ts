@@ -9,6 +9,7 @@ export const MAX_CHARACTER_DATA_SIZE: number = 1024 * 1024 * 15;
 export const MAX_USER_IMAGE_SIZE: number = 1024 * 1024 * 2.5;
 export const MAX_COMMENT_IMAGE_SIZE: number = 1024 * 1024 * 8;
 export const MAX_REF_IMAGE_SIZE: number = 1024 * 1024 * 10;
+export const MAX_NOTIFICATION_IMAGE_SIZE: number = 1024 * 1024 * 1.5;
 export const ACCESSTOKEN_COOKIE_AGE: number = 1000 * 60 * 60 * 24 * 7;
 export const REFRESHTOKEN_COOKIE_AGE: number = 1000 * 60 * 60 * 24 * 30;
 export const COMMENT_BAN_THRESHOLD: number = 50;

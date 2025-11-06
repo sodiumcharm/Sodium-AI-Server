@@ -1,4 +1,4 @@
-function formatLocalDate(date: Date): string {
+const formatLocalDate = function (date: Date): string {
   const options: Intl.DateTimeFormatOptions = {
     hour: '2-digit',
     minute: '2-digit',
@@ -17,6 +17,6 @@ function formatLocalDate(date: Date): string {
   const year = parts[4]; // "2025"
 
   return `${time} ${day} ${month}, ${year}`;
-}
+};
 
 export default formatLocalDate;

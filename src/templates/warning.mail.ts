@@ -392,3 +392,187 @@ This email was sent to you regarding your Sodium AI account.
 
   return { subject, text, html };
 };
+
+export const generateAccountBanEmail = function (userName: string): Mail {
+  const siteUrl: string = CLIENT_URL;
+  const year = new Date().getFullYear();
+
+  const warningIcon = `
+    <span style="
+      display:inline-block;
+      width:20px;
+      height:20px;
+      border-radius:50%;
+      background-color:#b00020;
+      text-align:center;
+      line-height:20px;
+      font-size:14px;
+      color:#ffffff;
+      font-weight:bold;
+      font-family:Arial, Helvetica, sans-serif;
+      vertical-align:middle;
+      margin-right:12px;
+    ">!</span>
+  `;
+
+  const subject = `Account Permanently Banned: Your Sodium AI account has been terminated`;
+
+  const text = `
+SODIUM AI
+Create • Connect • Discover
+
+Hello ${userName},
+
+Your Sodium AI account has been permanently banned due to repeated violations of our Community Guidelines and Terms of Service.
+
+ACCOUNT STATUS:
+- Account: ${userName}
+- Status: Permanently Banned
+- Reason: Repeated violations of Community Guidelines and Terms of Service
+- Action Date: ${formatLocalDate(new Date())}
+
+WHAT THIS MEANS:
+- Your account has been permanently terminated
+- You will no longer be able to access Sodium AI
+- All your characters and data have been removed
+- You cannot create a new account on Sodium AI
+- This decision is final and cannot be reversed
+
+We take community safety very seriously. After multiple warnings and violations, we have made the decision to permanently remove your access to our platform.
+
+This decision is final. Appeals will not be considered for accounts with repeated violations.
+
+---
+© ${year} Sodium AI. All rights reserved.
+This email was sent to you regarding your Sodium AI account.
+`;
+
+  const html = `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Account Permanently Banned</title>
+  <style>
+    @media only screen and (max-width:480px) {
+      .container { width:100% !important; padding:12px !important; }
+      .hero { padding:20px !important; }
+      .feature { display:block !important; width:100% !important; }
+      .big-btn { padding:12px 18px !important; font-size:16px !important; }
+    }
+    body, table, td { -webkit-text-size-adjust:100%; -ms-text-size-adjust:100%; }
+  </style>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f6f8;font-family:Helvetica, Arial, sans-serif;">
+  <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+    <tr>
+      <td align="center" style="padding:24px 12px;">
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="600" style="width:100%;max-width:600px;" class="container">
+          <!-- Header -->
+          <tr>
+            <td style="background:linear-gradient(90deg,#b00020 0%, #f48fb1 100%); border-radius:12px 12px 0 0; padding:28px 28px;" class="hero" align="left">
+              <h1 style="margin:0;color:#ffffff;font-size:22px;line-height:1.1;">Account Permanently Banned</h1>
+              <p style="margin:8px 0 0 0;color:rgba(255,255,255,0.95);font-size:14px;">
+                <strong>${userName}</strong>, your account has been permanently terminated.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="background:#ffffff;padding:20px 28px;border:1px solid #e6e9ec;border-top:0;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="color:#0f2130;font-size:15px;line-height:1.5;">
+                    <p style="margin:0 0 12px 0;">
+                      Your Sodium AI account has been permanently banned due to repeated violations of our Community Guidelines and Terms of Service.
+                    </p>
+
+                    <!-- Ban Details -->
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:8px;">
+                      <tr>
+                        <td style="padding:10px 0;" class="feature">
+                          ${warningIcon}
+                          <strong style="vertical-align:middle;">Account</strong>
+                          <div style="color:#5b6b72;font-size:13px;margin-top:4px;margin-left:32px;">
+                            ${userName}
+                          </div>
+                        </td>
+                      </tr>
+
+                      <tr>
+                        <td style="padding:10px 0;" class="feature">
+                          ${warningIcon}
+                          <strong style="vertical-align:middle;">Status</strong>
+                          <div style="color:#5b6b72;font-size:13px;margin-top:4px;margin-left:32px;">
+                            Permanently Banned
+                          </div>
+                        </td>
+                      </tr>
+
+                      <tr>
+                        <td style="padding:10px 0;" class="feature">
+                          ${warningIcon}
+                          <strong style="vertical-align:middle;">Reason</strong>
+                          <div style="color:#5b6b72;font-size:13px;margin-top:4px;margin-left:32px;">
+                            Repeated violations of Community Guidelines and Terms of Service
+                          </div>
+                        </td>
+                      </tr>
+
+                      <tr>
+                        <td style="padding:10px 0;" class="feature">
+                          ${warningIcon}
+                          <strong style="vertical-align:middle;">Action Date</strong>
+                          <div style="color:#5b6b72;font-size:13px;margin-top:4px;margin-left:32px;">
+                            ${formatLocalDate(new Date())}
+                          </div>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <div style="margin:18px 0;padding:14px;background-color:#ffebee;border-left:4px solid #b00020;border-radius:4px;">
+                      <p style="margin:0;color:#b00020;font-size:14px;font-weight:600;">
+                        🚫 This ban is permanent and final
+                      </p>
+                      <p style="margin:8px 0 0 0;color:#5b6b72;font-size:13px;">
+                        Your account has been permanently terminated. You will no longer be able to access Sodium AI, 
+                        and all your characters and data have been removed. You cannot create a new account on our platform.
+                      </p>
+                    </div>
+
+                    <p style="margin:18px 0 0 0;">
+                      We take community safety very seriously. After multiple warnings and violations, we have made the decision 
+                      to permanently remove your access to our platform. This decision is final and appeals will not be considered 
+                      for accounts with repeated violations.
+                    </p>
+                  </td>
+                </tr>
+
+                <tr>
+                  <td style="padding:20px 0 0 0;color:#8b9aa3;font-size:12px;">
+                    <p style="margin:0;">This decision is final and cannot be reversed.</p>
+                  </td>
+                </tr>
+
+              </table>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding:14px 28px 6px 28px;color:#9aa7ad;font-size:12px;text-align:center;">
+              © ${year} Sodium AI — AI character creation platform.
+              <div style="margin-top:6px;"><a href="${siteUrl}" target="_blank" style="color:#b00020;text-decoration:none;">${siteUrl}</a></div>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+  return { subject, text, html };
+};

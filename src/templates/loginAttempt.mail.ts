@@ -10,7 +10,7 @@ const generateLoginAttemptEmail = function (req: Request, userName: string): Mai
   const siteUrl: string = CLIENT_URL;
   const year = new Date().getFullYear();
 
-  let ip = req.socket.remoteAddress?.replace(/^::ffff:/, '') || 'Unknown';
+  let ip = req.ip?.replace(/^::ffff:/, '') || 'Unknown';
   if (ip === '::1') ip = '127.0.0.1';
 
   const geo = ip !== '127.0.0.1' ? geoip.lookup(ip) : null;

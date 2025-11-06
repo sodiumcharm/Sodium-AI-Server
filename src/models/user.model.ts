@@ -193,6 +193,13 @@ const userSchema = new mongoose.Schema<UserDocument>(
             'casual',
           ],
         },
+        text: {
+          type: String,
+          trim: true,
+        },
+        image: {
+          type: String,
+        },
         emitter: {
           type: mongoose.Schema.Types.ObjectId,
           ref: 'User',

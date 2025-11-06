@@ -372,10 +372,10 @@ export const reminderSchema = z.object({
   remindAt: z.string({ error: 'You did not provide time for reminder!' }).trim(),
   timezone: z.string({ error: 'You did not provide timezone for reminder!' }).trim(),
   message: z
-    .string({ error: 'Empty or invalid input type was provided for character!' })
+    .string({ error: 'Empty or invalid input type was provided for message!' })
     .trim()
     .min(1, { message: 'Reminder text is required!' })
-    .max(200, { message: 'Character voice must be at most 200 characters long!' }),
+    .max(200, { message: 'Message must be at most 200 characters long!' }),
 });
 
 export const characterReportSchema = z.object({

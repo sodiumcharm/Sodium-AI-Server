@@ -6,6 +6,7 @@ import {
   MAX_USER_IMAGE_SIZE,
   MAX_REF_IMAGE_SIZE,
   MAX_COMMENT_IMAGE_SIZE,
+  MAX_NOTIFICATION_IMAGE_SIZE,
 } from '../constants';
 import { characterDataFilter, imageFilter } from '../config/multerFilters';
 
@@ -43,5 +44,11 @@ export const uploadReferenceImage = multer({
 export const uploadCommentImage = multer({
   storage: diskStorage,
   limits: { fileSize: MAX_COMMENT_IMAGE_SIZE },
+  fileFilter: imageFilter,
+});
+
+export const uploadNotificationImage = multer({
+  storage: memoryStorage,
+  limits: { fileSize: MAX_NOTIFICATION_IMAGE_SIZE },
   fileFilter: imageFilter,
 });

@@ -1,6 +1,5 @@
 import { MainMbtiFunctions, MbtiScore, MbtiTestResult, UserDocument } from '../types/types';
 import { mbtiMap } from './assessmentInfo';
-import hfClient from '../llm/huggingFace/huggingFace';
 import { InferenceClient } from '@huggingface/inference';
 
 export const determineMBTI = async function (

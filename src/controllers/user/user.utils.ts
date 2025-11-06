@@ -3,12 +3,24 @@ import Suspend from '../../models/suspend.model';
 import User from '../../models/user.model';
 import { BAN_THRESHOLD, SUSPEND_DAYS } from '../../constants';
 import createSystemNotification from '../../notification/systemNotification';
+import {
+  generateAccountBanEmail,
+  generateAccountSuspensionEmail,
+} from '../../templates/warning.mail';
+import sendMail from '../../config/nodemailer';
+import { SuspensionDocument } from '../../types/types';
 
 export const registerSuspension = async function (
   userId: string | mongoose.Types.ObjectId,
   reason: string
 ): Promise<boolean> {
+  let suspension: SuspensionDocument | null = null;
+
   try {
+    const user = await User.findById(userId);
+
+    if (!user) return false;
+
     const existingSuspension = await Suspend.findOne({ user: userId });
 
     if (!existingSuspension) {
@@ -18,19 +30,7 @@ export const registerSuspension = async function (
         suspensionEndDate: new Date(Date.now() + SUSPEND_DAYS * 24 * 60 * 60 * 1000),
       });
 
-      if (!newSuspension) return false;
-
-      const suspendedUser = await User.findByIdAndUpdate(
-        userId,
-        {
-          $set: { status: 'suspended' },
-        },
-        { new: true }
-      );
-
-      if (!suspendedUser || suspendedUser.status !== 'suspended') return false;
-
-      await createSystemNotification('suspension', { receiverUser: newSuspension.user });
+      suspension = newSuspension;
     } else {
       const updatedSuspension = await Suspend.findByIdAndUpdate(
         existingSuspension._id,
@@ -48,31 +48,46 @@ export const registerSuspension = async function (
 
       if (!updatedSuspension || updatedSuspension.reason !== reason) return false;
 
-      const suspendedUser = await User.findByIdAndUpdate(
+      suspension = updatedSuspension;
+    }
+
+    if (!suspension) return false;
+
+    const suspendedUser = await User.findByIdAndUpdate(
+      userId,
+      {
+        $set: { status: 'suspended' },
+      },
+      { new: true }
+    );
+
+    if (!suspendedUser || suspendedUser.status !== 'suspended') return false;
+
+    await createSystemNotification('suspension', { receiverUser: suspension.user });
+
+    const { subject, text, html } = generateAccountSuspensionEmail(
+      user.fullname,
+      suspension.suspensionEndDate
+    );
+
+    await sendMail(user.email, subject, text, html);
+
+    if (suspension.suspensionCount >= BAN_THRESHOLD) {
+      const bannedUser = await User.findByIdAndUpdate(
         userId,
         {
-          $set: { status: 'suspended' },
+          $set: { status: 'banned' },
         },
         { new: true }
       );
 
-      if (!suspendedUser || suspendedUser.status !== 'suspended') return false;
+      if (!bannedUser || bannedUser.status !== 'banned') return false;
 
-      await createSystemNotification('suspension', { receiverUser: existingSuspension.user });
+      await createSystemNotification('ban', { receiverUser: suspension.user });
 
-      if (updatedSuspension.suspensionCount >= BAN_THRESHOLD) {
-        const bannedUser = await User.findByIdAndUpdate(
-          userId,
-          {
-            $set: { status: 'banned' },
-          },
-          { new: true }
-        );
+      const { subject, text, html } = generateAccountBanEmail(user.fullname);
 
-        if (!bannedUser || bannedUser.status !== 'banned') return false;
-
-        await createSystemNotification('ban', { receiverUser: existingSuspension.user });
-      }
+      await sendMail(user.email, subject, text, html);
     }
 
     return true;
