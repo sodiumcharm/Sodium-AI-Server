@@ -8,6 +8,7 @@ const personalityTestResultSchema = new mongoose.Schema<PersonalityResultDocumen
       trim: true,
       required: true,
       enum: ['mbti', 'enneagram', 'attachmentStyle', 'selfEsteem', 'EQ'],
+      index: true,
     },
     userId: {
       type: mongoose.Schema.Types.ObjectId,

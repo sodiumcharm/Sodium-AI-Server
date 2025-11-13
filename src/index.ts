@@ -10,7 +10,7 @@ import { initSockets } from './websocket/socket';
 import agenda from './jobs/agenda';
 
 // Checking environment variables
-checkEnvVariables(config);
+checkEnvVariables(config, 'throw-error');
 
 // Initiating Server
 const server = http.createServer(app);
@@ -57,6 +57,8 @@ connectDB()
       await agenda.start();
       logger.info('Agenda started and is ready to process jobs.');
       await initTempCleaner();
+
+      console.log(new Date(Date.now() + 2 * 60 * 1000).toISOString());
     });
   })
   .catch(error => {

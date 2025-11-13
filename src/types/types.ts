@@ -178,6 +178,12 @@ export type MbtiTestResult = {
   details?: string;
 };
 
+export type SelfEsteemTestResult = {
+  success: boolean;
+  selfEsteemPercent?: number;
+  details?: string;
+};
+
 export type Zodiac =
   | 'aries'
   | 'taurus'
@@ -482,7 +488,7 @@ export interface PersonalityResultDocument extends Document {
   _id: Types.ObjectId;
   testName: TestName;
   userId: Types.ObjectId;
-  mbtiAnalysis: MbtiResult;
+  mbtiAnalysis?: MbtiResult;
   result: string;
   details: string;
 }
@@ -508,6 +514,14 @@ export interface CharacterReportDocument extends Document {
   disapprovalCount: number;
   reports: Types.ObjectId[];
   reasons: ReportReasons;
+}
+
+export interface ReminderDocument extends Document {
+  _id: Types.ObjectId;
+  user: Types.ObjectId;
+  character: Types.ObjectId;
+  reminderTime: string;
+  message: string;
 }
 
 export type ImagePrompt = {
@@ -591,6 +605,7 @@ export type CloudinaryDependency = {
 };
 
 export interface CreateReminder extends JobAttributesData {
+  reminderId: string;
   userId: string;
   userName: string;
   characterName: string;

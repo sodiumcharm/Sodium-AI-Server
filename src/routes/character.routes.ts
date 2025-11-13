@@ -5,6 +5,7 @@ import { checkEmailVerification } from '../middlewares/emailChecker.middleware';
 import { imageCheckerAI } from '../middlewares/imageChecker.middleware';
 import {
   cancelAllReminders,
+  cancelReminder,
   clearCommunicationMemory,
   communicateCharacter,
   createCharacter,
@@ -15,6 +16,7 @@ import {
   getCharacterInfo,
   getCharacters,
   getPossibleReplies,
+  getReminders,
   getUserCreations,
   reportChaaracter,
   searchCharacters,
@@ -30,6 +32,8 @@ router.route('/get-characters').get(softAuthChecker, getCharacters);
 router.route('/get-info/:characterId').get(softAuthChecker, getCharacterInfo);
 
 router.route('/get-creations').get(getUserCreations);
+
+router.route('/get-reminders/:characterId').get(verifyAuth, getReminders);
 
 router.route('/create').post(
   verifyAuth,
@@ -69,6 +73,8 @@ router.route('/drop/:characterId').delete(verifyAuth, dropCharacter);
 router.route('/remind-me').post(verifyAuth, checkEmailVerification, setReminder);
 
 router.route('/cancel-reminders/:characterId').delete(verifyAuth, cancelAllReminders);
+
+router.route('/cancel-reminder/:reminderId').delete(verifyAuth, cancelReminder);
 
 router.route('/report').post(verifyAuth, reportChaaracter);
 

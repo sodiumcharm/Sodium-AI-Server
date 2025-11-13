@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { uploadToCloudinary, deleteFromCloudinary } from '../src/services/cloudinary';
-import { mockCloudinary } from './mocks';
+import { mockCloudinary } from './config/mocks';
 
 describe('uploadToCloudinary', () => {
   const options = {

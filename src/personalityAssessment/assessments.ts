@@ -1,6 +1,19 @@
-import { MainMbtiFunctions, MbtiScore, MbtiTestResult, UserDocument } from '../types/types';
+import {
+  MainMbtiFunctions,
+  MbtiScore,
+  MbtiTestResult,
+  SelfEsteemTestResult,
+  UserDocument,
+} from '../types/types';
 import { mbtiMap } from './assessmentInfo';
 import { InferenceClient } from '@huggingface/inference';
+import { calcPercent } from '../utils/percent';
+import {
+  MAX_FUNCTION_SCORE,
+  MAX_SELF_ESTEEM_SCORE,
+  MIN_FUNCTION_SCORE,
+  MIN_SELF_ESTEEM_SCORE,
+} from '../constants';
 
 export const determineMBTI = async function (
   scores: MbtiScore,
@@ -18,14 +31,14 @@ export const determineMBTI = async function (
   const mbtiType = mbtiMap[mainFunctionString] || 'Unknown';
 
   const percentScores: MbtiScore = {
-    Fe: ((scores.Fe + 20) / 40) * 100,
-    Fi: ((scores.Fi + 20) / 40) * 100,
-    Ti: ((scores.Ti + 20) / 40) * 100,
-    Te: ((scores.Te + 20) / 40) * 100,
-    Ne: ((scores.Ne + 20) / 40) * 100,
-    Ni: ((scores.Ni + 20) / 40) * 100,
-    Se: ((scores.Se + 20) / 40) * 100,
-    Si: ((scores.Si + 20) / 40) * 100,
+    Fe: calcPercent(scores.Fe, MAX_FUNCTION_SCORE, MIN_FUNCTION_SCORE),
+    Fi: calcPercent(scores.Fi, MAX_FUNCTION_SCORE, MIN_FUNCTION_SCORE),
+    Ti: calcPercent(scores.Ti, MAX_FUNCTION_SCORE, MIN_FUNCTION_SCORE),
+    Te: calcPercent(scores.Te, MAX_FUNCTION_SCORE, MIN_FUNCTION_SCORE),
+    Ne: calcPercent(scores.Ne, MAX_FUNCTION_SCORE, MIN_FUNCTION_SCORE),
+    Ni: calcPercent(scores.Ni, MAX_FUNCTION_SCORE, MIN_FUNCTION_SCORE),
+    Se: calcPercent(scores.Se, MAX_FUNCTION_SCORE, MIN_FUNCTION_SCORE),
+    Si: calcPercent(scores.Si, MAX_FUNCTION_SCORE, MIN_FUNCTION_SCORE),
   };
 
   try {
@@ -71,6 +84,50 @@ export const determineMBTI = async function (
       success: true,
       type: mbtiType,
       score: percentScores,
+      details: resultDetails,
+    };
+  } catch (error) {
+    return { success: false };
+  }
+};
+
+export const assessSelfEsteem = async function (
+  score: number,
+  user: UserDocument,
+  hfClient: InferenceClient
+): Promise<SelfEsteemTestResult> {
+  const selfEsteemPercent = calcPercent(score, MAX_SELF_ESTEEM_SCORE, MIN_SELF_ESTEEM_SCORE);
+
+  try {
+    const response = await hfClient.chatCompletion({
+      model: 'meta-llama/Meta-Llama-3-70B-Instruct',
+      messages: [
+        {
+          role: 'system',
+          content:
+            'You are an experienced psychologist who specializes in assessing self-esteem. You provide friendly, empathetic, and insightful reports based on the Rosenberg Self-Esteem Scale. Make the report very detailed within 300 words.',
+        },
+        {
+          role: 'user',
+          content: `Name of User: ${user.fullname}
+          Generate a detailed personality analysis for this person.
+          ### Self Esteem Percentage: ${selfEsteemPercent}%
+          ### Instructions
+          1. Explain their personality style in natural human terms which should be relatable.
+          2. Suggest communication, romantic and career tips.`,
+        },
+      ],
+      temperature: 0.8,
+      max_tokens: 800,
+    });
+
+    const resultDetails = response.choices[0].message.content;
+
+    if (!resultDetails) return { success: false };
+
+    return {
+      success: true,
+      selfEsteemPercent,
       details: resultDetails,
     };
   } catch (error) {

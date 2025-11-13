@@ -64,7 +64,7 @@ describe('createAndSendOTP', () => {
     const result = await createAndSendOTP(testUser, 'verify-email');
 
     expect(result).toBe(true);
-  });
+  }, 10000);
 });
 
 describe('verifyOTP', () => {

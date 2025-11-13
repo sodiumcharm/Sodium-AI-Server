@@ -11,9 +11,7 @@ export const processImage = asyncHandler(async function (
   res: Response,
   next: NextFunction
 ) {
-  if (!req.file) {
-    return next(new ApiError(400, 'No image file found in the request!'));
-  }
+  if (!req.file) return next();
 
   const imageBuffer = req.file?.buffer;
 

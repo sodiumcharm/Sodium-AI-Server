@@ -50,6 +50,7 @@ import generateCharacterReportEmail from '../../templates/report.mail';
 import sendMail from '../../config/nodemailer';
 import createSystemNotification from '../../notification/systemNotification';
 import { generateCharacterDisabledEmail } from '../../templates/warning.mail';
+import Reminder from '../../models/reminder.model';
 
 // *************************************************************
 // SEARCH CHARACTERS
@@ -414,6 +415,41 @@ export const getUserCreations = asyncHandler(async function (
       hasMore: skip + characters.length < totalCount,
     })
   );
+});
+
+// *************************************************************
+// GET REMINDERS
+// *************************************************************
+
+export const getReminders = asyncHandler(async function (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) {
+  const verifiedUser = req.user;
+
+  if (!verifiedUser) {
+    return next(new ApiError(401, 'Unauthorized request denied! Please login first.'));
+  }
+
+  const { characterId } = req.params;
+
+  const { data: charId, error } = objectIdSchema.safeParse(characterId);
+
+  if (error) {
+    return next(new ApiError(400, error.issues[0].message));
+  }
+
+  const reminders = await Reminder.find({
+    user: verifiedUser._id,
+    character: charId,
+  });
+
+  if (!reminders) {
+    return next(new ApiError(500, 'Failed to load reminders!'));
+  }
+
+  res.status(200).json(new ApiResponse({ reminders }));
 });
 
 // *************************************************************
@@ -1584,7 +1620,19 @@ export const setReminder = asyncHandler(async function (
     return next(new ApiError(500, 'Failed to set reminder with the character!'));
   }
 
+  const reminder = await Reminder.create({
+    user: verifiedUser._id,
+    character: character._id,
+    reminderTime: humanTime,
+    message,
+  });
+
+  if (!reminder) {
+    return next(new ApiError(500, 'Failed to set reminder with the character!'));
+  }
+
   await agenda.schedule(remindDate, 'send reminder email', {
+    reminderId: reminder._id,
     userId: verifiedUser._id,
     userName: verifiedUser.fullname,
     userEmail: verifiedUser.email,
@@ -1608,7 +1656,7 @@ export const setReminder = asyncHandler(async function (
     },
   });
 
-  res.status(200).json(new ApiResponse(null, 'Reminder was set successfully.'));
+  res.status(200).json(new ApiResponse({ reminder }, 'Reminder was set successfully.'));
 });
 
 // *************************************************************
@@ -1634,13 +1682,64 @@ export const cancelAllReminders = asyncHandler(async function (
     return next(new ApiError(400, error.issues[0].message));
   }
 
-  await agenda.cancel({
-    name: 'send reminder email',
-    'data.userId': verifiedUser._id,
-    'data.characterId': charId,
-  });
+  await Promise.all([
+    Reminder.deleteMany({
+      user: verifiedUser._id,
+      character: charId,
+    }),
+    agenda.cancel({
+      name: 'send reminder email',
+      'data.userId': verifiedUser._id,
+      'data.characterId': charId,
+    }),
+  ]);
 
   res.status(200).json(new ApiResponse(null, 'All reminders were cleared successfully.'));
+});
+
+// *************************************************************
+// CANCEL ONE REMINDER
+// *************************************************************
+
+export const cancelReminder = asyncHandler(async function (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) {
+  const verifiedUser = req.user;
+
+  if (!verifiedUser) {
+    return next(new ApiError(401, 'Unauthorized request denied!'));
+  }
+
+  const { reminderId } = req.params;
+
+  const { data: remId, error } = objectIdSchema.safeParse(reminderId);
+
+  if (error) {
+    return next(new ApiError(400, error.issues[0].message));
+  }
+
+  const reminder = await Reminder.findById(remId);
+
+  if (!reminder) {
+    return next(new ApiError(404, 'Reminder does not exist!'));
+  }
+
+  if (verifiedUser.role === 'user' && !reminder.user.equals(verifiedUser._id)) {
+    return next(new ApiError(403, 'You are not authorized to cancel this reminder!'));
+  }
+
+  await Promise.all([
+    Reminder.findByIdAndDelete(remId),
+    agenda.cancel({
+      name: 'send reminder email',
+      'data.userId': verifiedUser._id,
+      'data.characterId': reminder.character,
+    }),
+  ]);
+
+  res.status(200).json(new ApiResponse(null, 'Reminder was cleared successfully.'));
 });
 
 // *************************************************************

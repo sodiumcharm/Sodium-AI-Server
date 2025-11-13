@@ -25,27 +25,49 @@ const _config: EnvObject = {
 
 export const config: EnvObject = Object.freeze(_config);
 
-export const checkEnvVariables = function (config: EnvObject): void {
+export const checkEnvVariables = function (
+  config: EnvObject,
+  returnType: 'throw-error' | 'return-boolean'
+): void | boolean {
   try {
-    for (const [key, value] of Object.entries(config)) {
-      if (!value) {
-        throw new Error(`Environment variable ${key} is required!`);
-      }
+    if (returnType === 'throw-error') {
+      for (const [key, value] of Object.entries(config)) {
+        if (!value) {
+          throw new Error(`Environment variable ${key} is required!`);
+        }
 
-      if (typeof value === 'string' && value.trim().length === 0) {
-        throw new Error(`Environment variable ${key} is required!`);
-      }
+        if (typeof value === 'string' && value.trim().length === 0) {
+          throw new Error(`Environment variable ${key} is required!`);
+        }
 
-      if (Array.isArray(value)) {
-        if (value.length === 0 || value.some(v => !v || v.trim().length === 0)) {
-          throw new Error(`Environment variable ${key} is empty!`);
+        if (Array.isArray(value)) {
+          if (value.length === 0 || value.some(v => !v || v.trim().length === 0)) {
+            throw new Error(`Environment variable ${key} is empty!`);
+          }
         }
       }
+    }
+
+    if (returnType === 'return-boolean') {
+      for (const [_, value] of Object.entries(config)) {
+        if (!value) return false;
+
+        if (typeof value === 'string' && value.trim().length === 0) return false;
+
+        if (Array.isArray(value)) {
+          if (value.length === 0 || value.some(v => !v || v.trim().length === 0)) {
+            return false;
+          }
+        }
+      }
+
+      return true;
     }
   } catch (error) {
     if (error instanceof Error) {
       logger.error(`Environment variable check failed: ${error.message}`);
     }
-    process.exit(1);
+    if (returnType === 'throw-error') process.exit(1);
+    if (returnType === 'return-boolean') return false;
   }
 };

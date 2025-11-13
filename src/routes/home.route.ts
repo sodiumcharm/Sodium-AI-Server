@@ -8,6 +8,7 @@ router.route('/').get(function (req, res: Response) {
     message: 'Welcome to Sodium AI',
     version: '1.0.0',
     status: 'ok',
+    ipAddress: req.ip?.replace(/^::ffff:/, '') || 'Unknown',
     timestamp: new Date().toISOString(),
   });
 });

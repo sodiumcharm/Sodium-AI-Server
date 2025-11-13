@@ -1,3 +1,5 @@
+import mbtiQuestions from './personalityAssessment/mbtiQuestions';
+import selfEsteemQuestions from './personalityAssessment/selfesteemQuestions';
 import { ModelMemory } from './types/types';
 
 export const DB_NAME: string = 'SodiumAI';
@@ -44,6 +46,12 @@ export const IMAGE_MODELS = {
   fantasy: 'stabilityai/stable-diffusion-xl-base-1.0',
   horror: 'Jonjew/DarkFantasyHorror',
 };
+
+// MBTI Constants
+export const MAX_FUNCTION_SCORE = (mbtiQuestions.length / 8) * 2;
+export const MIN_FUNCTION_SCORE = (mbtiQuestions.length / 8) * -2;
+export const MAX_SELF_ESTEEM_SCORE = selfEsteemQuestions.length * 2;
+export const MIN_SELF_ESTEEM_SCORE = selfEsteemQuestions.length * -2;
 
 // TEST
 export const TEST_USER_ID: string = '69020b5ee9467cd382b501b6';

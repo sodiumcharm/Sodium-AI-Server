@@ -6,6 +6,7 @@ import logger from '../utils/logger';
 import { generateReminderMail } from '../templates/reminder.mail';
 import sendMail from '../config/nodemailer';
 import createScheduledNotification from '../notification/scheduledNotification';
+import Reminder from '../models/reminder.model';
 
 const agenda = new Agenda({
   db: { address: `${config.MONGODB_URI}/${DB_NAME}`, collection: 'reminderJobs' },
@@ -14,7 +15,8 @@ const agenda = new Agenda({
 });
 
 agenda.define('send reminder email', async (job: Job<CreateReminder>) => {
-  const { userName, userId, userEmail, characterName, characterId, message } = job.attrs.data;
+  const { reminderId, userName, userId, userEmail, characterName, characterId, message } =
+    job.attrs.data;
 
   if (config.NODE_ENV === 'development') {
     logger.info(`Sending reminder email to ${userName} for ${characterName}.`);
@@ -29,6 +31,8 @@ agenda.define('send reminder email', async (job: Job<CreateReminder>) => {
     'data.userId': userId,
     'data.characterId': characterId,
   });
+
+  await Reminder.findByIdAndDelete(reminderId);
 });
 
 agenda.define('scheduled notification', async (job: Job<ScheduleNotification>) => {

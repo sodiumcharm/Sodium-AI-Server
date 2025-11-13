@@ -1,6 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import OpenAI from 'openai';
-import { cloudinary } from '../src/services/cloudinary';
+import { cloudinary } from '../../src/services/cloudinary';
 
 export const mockGenAI = {
   getGenerativeModel: (modelName: string) => ({
