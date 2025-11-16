@@ -6,6 +6,7 @@ import ApiError from '../utils/apiError';
 import fs from 'fs/promises';
 import { imageModerationPrompt } from '../prompts/contentModeration.prompts';
 import logger from '../utils/logger';
+import { config } from '../config/config';
 
 const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
@@ -27,7 +28,7 @@ export const imageCheckerAI = asyncHandler(async function (
 
   // filter only images
   const imageFiles = files.filter(file => file.mimetype.startsWith('image/'));
-  if (imageFiles.length === 0) return next();
+  if (imageFiles.length === 0 || config.NODE_ENV === 'test') return next();
 
   try {
     for (const file of imageFiles) {

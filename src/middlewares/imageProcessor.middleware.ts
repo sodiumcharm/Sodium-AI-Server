@@ -5,13 +5,14 @@ import asyncHandler from '../utils/asyncHandler';
 import { AuthRequest } from '../types/types';
 import { NextFunction, Response } from 'express';
 import ApiError from '../utils/apiError';
+import { config } from '../config/config';
 
 export const processImage = asyncHandler(async function (
   req: AuthRequest,
   res: Response,
   next: NextFunction
 ) {
-  if (!req.file) return next();
+  if (!req.file || config.NODE_ENV === 'test') return next();
 
   const imageBuffer = req.file?.buffer;
 

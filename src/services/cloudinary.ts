@@ -3,6 +3,7 @@ import { config } from '../config/config';
 import safelyDeleteFile from '../utils/deleteFile';
 import logger from '../utils/logger';
 import { CloudinaryDependency, CloudinaryDestroyResult } from '../types/types';
+import { TEST_RETURN_VALUE_KIT } from '../constants';
 
 cloudinary.config({
   cloud_name: config.CLOUDINARY_CLOUD_NAME,
@@ -19,6 +20,8 @@ export const uploadToCloudinary = async function (
 ): Promise<UploadApiResponse | null> {
   try {
     if (!localPath) return null;
+
+    if (config.NODE_ENV === 'test') return TEST_RETURN_VALUE_KIT.cloudinaryUploadResponse;
 
     const result = await deps.cloudinary.uploader.upload(localPath, {
       resource_type: 'auto',
@@ -44,6 +47,8 @@ export const deleteFromCloudinary = async function (
 ): Promise<CloudinaryDestroyResult | null> {
   try {
     if (!publicId || !resourceType) return null;
+
+    if (config.NODE_ENV === 'test') return TEST_RETURN_VALUE_KIT.cloudinaryDestroyResponse;
 
     const result = await cloudService.uploader.destroy(publicId, { resource_type: resourceType });
     return result;

@@ -1,4 +1,5 @@
 import { rateLimit, ipKeyGenerator } from 'express-rate-limit';
+import { config } from '../config/config';
 
 export const globalLimiter = rateLimit({
   windowMs: 1 * 60 * 1000,
@@ -12,7 +13,7 @@ export const globalLimiter = rateLimit({
 
 export const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 5,
+  max: config.NODE_ENV === 'production' ? 5 : 10,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
   message: {

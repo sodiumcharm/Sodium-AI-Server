@@ -8,7 +8,7 @@ import {
   verifyOTP,
   generateSecretCode,
 } from '../src/controllers/otp/otp.utils';
-import { TEST_USER_EMAIL, TEST_FULLNAME, TEST_USER_ID } from '../src/constants';
+import { TEST_USER_EMAIL, TEST_FULLNAME, TEST_USER_ID } from './constants';
 import { UserDocument } from '../src/types/types';
 import OTP from '../src/models/otp.model';
 

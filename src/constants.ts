@@ -1,6 +1,7 @@
+import { UploadApiResponse } from 'cloudinary';
 import mbtiQuestions from './personalityAssessment/mbtiQuestions';
 import selfEsteemQuestions from './personalityAssessment/selfesteemQuestions';
-import { ModelMemory } from './types/types';
+import { CloudinaryDestroyResult, ModelMemory } from './types/types';
 
 export const DB_NAME: string = 'SodiumAI';
 export const CLIENT_URL: string = '#';
@@ -54,8 +55,10 @@ export const MAX_SELF_ESTEEM_SCORE = selfEsteemQuestions.length * 2;
 export const MIN_SELF_ESTEEM_SCORE = selfEsteemQuestions.length * -2;
 
 // TEST
-export const TEST_USER_ID: string = '69020b5ee9467cd382b501b6';
-export const TEST_USER_EMAIL: string = 'bhootumr@gmail.com';
-export const TEST_USERNAME: string = 'Testify';
-export const TEST_FULLNAME: string = 'Test User';
-export const TEST_USER_PASSWORD: string = 'Example12345#';
+export const TEST_RETURN_VALUE_KIT = {
+  cloudinaryUploadResponse: {
+    public_id: 'test_public_id',
+    secure_url: 'https://res.cloudinary.com/test/image/upload/v123456/test_public_id.jpg',
+  } as UploadApiResponse,
+  cloudinaryDestroyResponse: { result: 'ok' } as CloudinaryDestroyResult,
+};

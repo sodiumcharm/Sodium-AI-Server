@@ -39,10 +39,10 @@ const globalErrorHandler = function (
     (err as any).status = (err as any).status || 'error';
   }
 
-  if (config.NODE_ENV === 'development') {
-    sendErrorDev(err, res);
+  if (config.NODE_ENV === 'development' || config.NODE_ENV === 'test') {
+    return sendErrorDev(err, res);
   } else if (config.NODE_ENV === 'production') {
-    sendErrorProd(err, res);
+    return sendErrorProd(err, res);
   }
 };
 
